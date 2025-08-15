@@ -1,4 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
+import { GEOGRAPHIC_LIMITS, CONTINENTAL_BOUNDARIES, REGIONAL_BOUNDARIES } from '../config/scientific-constants.js';
 
 /**
  * GNSS Data Provider
@@ -132,34 +133,59 @@ export class GnssDataProvider {
     }
   }
 
-  // Geographic coordinate boundaries cache for performance
+  // Geographic coordinate boundaries using scientific regional definitions
   private static readonly COUNTRY_BOUNDARIES = {
-    // Major seismically active countries with precise boundaries
+    // Major seismically active countries with scientifically accurate boundaries
     "United States": { 
       regions: [
         { minLat: 25.0, maxLat: 49.0, minLon: -125.0, maxLon: -66.9 }, // Continental US
-        { minLat: 64.0, maxLat: 71.5, minLon: -179.9, maxLon: -129.0 }, // Alaska
+        { 
+          minLat: REGIONAL_BOUNDARIES.alaska.bounds.south, 
+          maxLat: REGIONAL_BOUNDARIES.alaska.bounds.north, 
+          minLon: REGIONAL_BOUNDARIES.alaska.bounds.west, 
+          maxLon: REGIONAL_BOUNDARIES.alaska.bounds.east 
+        }, // Alaska - using scientific boundaries
         { minLat: 18.9, maxLat: 28.4, minLon: -178.3, maxLon: -154.8 }  // Hawaii
       ]
     },
     "Japan": { 
       regions: [
-        { minLat: 20.4, maxLat: 45.6, minLon: 122.9, maxLon: 153.9 }
+        { 
+          minLat: REGIONAL_BOUNDARIES.japan.bounds.south, 
+          maxLat: REGIONAL_BOUNDARIES.japan.bounds.north, 
+          minLon: REGIONAL_BOUNDARIES.japan.bounds.west, 
+          maxLon: REGIONAL_BOUNDARIES.japan.bounds.east 
+        }
       ]
     },
     "Chile": { 
       regions: [
-        { minLat: -56.0, maxLat: -17.5, minLon: -109.5, maxLon: -66.4 }
+        { 
+          minLat: REGIONAL_BOUNDARIES.chile.bounds.south, 
+          maxLat: REGIONAL_BOUNDARIES.chile.bounds.north, 
+          minLon: REGIONAL_BOUNDARIES.chile.bounds.west, 
+          maxLon: REGIONAL_BOUNDARIES.chile.bounds.east 
+        }
       ]
     },
     "New Zealand": { 
       regions: [
-        { minLat: -52.6, maxLat: -29.2, minLon: 165.8, maxLon: -175.2 }
+        { 
+          minLat: REGIONAL_BOUNDARIES.newzealand.bounds.south, 
+          maxLat: REGIONAL_BOUNDARIES.newzealand.bounds.north, 
+          minLon: REGIONAL_BOUNDARIES.newzealand.bounds.west, 
+          maxLon: REGIONAL_BOUNDARIES.newzealand.bounds.east 
+        }
       ]
     },
     "Turkey": { 
       regions: [
-        { minLat: 35.8, maxLat: 42.1, minLon: 25.7, maxLon: 44.8 }
+        { 
+          minLat: REGIONAL_BOUNDARIES.turkey.bounds.south, 
+          maxLat: REGIONAL_BOUNDARIES.turkey.bounds.north, 
+          minLon: REGIONAL_BOUNDARIES.turkey.bounds.west, 
+          maxLon: REGIONAL_BOUNDARIES.turkey.bounds.east 
+        }
       ]
     },
     "Indonesia": { 
@@ -247,9 +273,9 @@ export class GnssDataProvider {
    * Classify oceanic and remote regions using scientific geographic divisions
    */
   private getOceanicRegion(lat: number, lon: number): string {
-    // Polar regions
-    if (lat >= 66.5) return "Arctic Ocean";
-    if (lat <= -66.5) return "Southern Ocean";
+    // Polar regions using scientific definitions
+    if (lat >= GEOGRAPHIC_LIMITS.ARCTIC_CIRCLE) return "Arctic Ocean";
+    if (lat <= GEOGRAPHIC_LIMITS.ANTARCTIC_CIRCLE) return "Southern Ocean";
 
     // Pacific Ocean (largest ocean basin)
     if ((lon >= 120 && lon <= 180) || (lon >= -180 && lon <= -70)) {
@@ -263,15 +289,25 @@ export class GnssDataProvider {
       return "South Atlantic Ocean";
     }
 
-    // Indian Ocean
-    if (lon >= 20 && lon <= 120 && lat >= -60 && lat <= 30) {
+    // Indian Ocean - using scientific boundaries
+    const indianOcean = CONTINENTAL_BOUNDARIES.indian_ocean.bounds;
+    if (lon >= indianOcean.west && lon <= indianOcean.east && 
+        lat >= indianOcean.south && lat <= indianOcean.north) {
       return "Indian Ocean";
     }
 
-    // Continental regions for areas not covered by specific countries
-    if (lat >= 35 && lat <= 71 && lon >= -12 && lon <= 40) return "Europe";
-    if (lat >= -35 && lat <= 37 && lon >= -18 && lon <= 51) return "Africa";
-    if (lat >= -50 && lat <= -10 && lon >= 110 && lon <= 155) return "Australia/Oceania";
+    // Continental regions using scientific boundaries
+    const europe = CONTINENTAL_BOUNDARIES.europe.bounds;
+    if (lat >= europe.south && lat <= europe.north && 
+        lon >= europe.west && lon <= europe.east) return "Europe";
+        
+    const africa = CONTINENTAL_BOUNDARIES.africa.bounds;
+    if (lat >= africa.south && lat <= africa.north && 
+        lon >= africa.west && lon <= africa.east) return "Africa";
+        
+    const oceania = CONTINENTAL_BOUNDARIES.oceania.bounds;
+    if (lat >= oceania.south && lat <= oceania.north && 
+        lon >= oceania.west && lon <= oceania.east) return "Australia/Oceania";
 
     return "Global";
   }

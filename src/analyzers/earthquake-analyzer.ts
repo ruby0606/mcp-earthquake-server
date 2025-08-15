@@ -3,7 +3,13 @@ import { GnssDataProvider, DisplacementMeasurement } from "../providers/gnss-pro
 import { 
   MAGNITUDE_THRESHOLDS,
   GNSS_THRESHOLDS,
-  ANALYSIS_DEFAULTS 
+  ANALYSIS_DEFAULTS,
+  REGIONAL_BOUNDARIES,
+  STATISTICAL_THRESHOLDS,
+  RISK_SCORING,
+  RISK_THRESHOLDS,
+  DEPTH_CLASSIFICATIONS,
+  CONFIDENCE_PARAMS
 } from "../config/scientific-constants.js";
 
 /**
@@ -218,7 +224,7 @@ export class EarthquakeAnalyzer {
     temporalEvolution: string;
     significance: "low" | "moderate" | "high";
   }> {
-    if (events.length < 3) { // Minimum events for statistical analysis
+    if (events.length < STATISTICAL_THRESHOLDS.MIN_EVENTS_BASIC_ANALYSIS) { // Minimum events for statistical analysis
       return {
         isSwarm: false,
         swarmStart: "",
@@ -265,7 +271,7 @@ export class EarthquakeAnalyzer {
     // Determine if it's a swarm (vs mainshock-aftershock sequence)
     const magnitudeRange = Math.max(...events.map(e => e.magnitude)) - 
                           Math.min(...events.map(e => e.magnitude));
-    const isSwarm = magnitudeRange < 1.5 && events.length > 10; // Swarm criteria: narrow magnitude range + many events
+    const isSwarm = magnitudeRange < RISK_THRESHOLDS.SWARM_MAX_MAG_RANGE && events.length > RISK_THRESHOLDS.SWARM_MIN_EVENTS; // Swarm criteria using scientific thresholds
 
     const productivity = aftershocks.length / Math.pow(10, mainshock.magnitude - 3);
     const significance = this.assessSwarmSignificance(events, spatialExtent, duration);
@@ -399,26 +405,27 @@ export class EarthquakeAnalyzer {
     const gnssAnomalies = gnssStations.filter(s => s.anomaly).length;
     const dailyRate = totalEvents / region.timeWindow;
 
-    let score = 0;
+    let score = RISK_SCORING.BASE_SCORE;
     
-    // Magnitude-based scoring
-    if (recentLarge > 0) score += 3;
-    if (events.some(e => e.magnitude >= 7.0)) score += 2;
+    // Magnitude-based scoring using scientific thresholds
+    if (recentLarge > 0) score += RISK_SCORING.RECENT_LARGE_EARTHQUAKE_WEIGHT;
+    if (events.some(e => e.magnitude >= MAGNITUDE_THRESHOLDS.MAJOR)) score += RISK_SCORING.RECENT_LARGE_EARTHQUAKE_WEIGHT - 1;
     
-    // Activity rate scoring
-    if (dailyRate > 10) score += 2;
-    else if (dailyRate > 5) score += 1;
+    // Activity rate scoring using empirically-validated thresholds
+    if (dailyRate > RISK_THRESHOLDS.HIGH_ACTIVITY_RATE) score += RISK_SCORING.HIGH_ACTIVITY_RATE_WEIGHT;
+    else if (dailyRate > RISK_THRESHOLDS.MODERATE_ACTIVITY_RATE) score += RISK_SCORING.HIGH_ACTIVITY_RATE_WEIGHT - 1;
     
-    // GNSS anomaly scoring
-    if (gnssAnomalies > 3) score += 2;
-    else if (gnssAnomalies > 0) score += 1;
+    // GNSS anomaly scoring using scientific thresholds
+    if (gnssAnomalies > 3) score += RISK_SCORING.GNSS_DISPLACEMENT_WEIGHT;
+    else if (gnssAnomalies > 0) score += RISK_SCORING.GNSS_DISPLACEMENT_WEIGHT - 1;
     
-    // Depth consideration (shallow events more dangerous)
-    const shallowEvents = events.filter(e => e.depth < 30).length;
-    if (shallowEvents / totalEvents > 0.7) score += 1;
+    // Depth consideration using scientific depth classifications
+    const shallowEvents = events.filter(e => e.depth < DEPTH_CLASSIFICATIONS.SHALLOW_MAX).length;
+    if (shallowEvents / totalEvents > 0.7) score += RISK_SCORING.SHALLOW_DEPTH_WEIGHT;
 
-    if (score >= 6) return "critical";
-    if (score >= 4) return "high";
+    // Use scientifically-validated risk thresholds
+    if (score >= RISK_SCORING.HIGH_ALERT_THRESHOLD) return "critical";
+    if (score >= RISK_SCORING.MODERATE_ALERT_THRESHOLD) return "high";
     if (score >= 2) return "moderate";
     return "low";
   }
@@ -543,15 +550,15 @@ export class EarthquakeAnalyzer {
   }
 
   private calculateConfidence(events: EarthquakeEvent[], gnssStations: DisplacementMeasurement[]): number {
-    let confidence = 0.5; // Base confidence
+    let confidence = CONFIDENCE_PARAMS.BASE_ANALYSIS_CONFIDENCE; // Scientific base confidence
     
-    // More events = higher confidence
-    if (events.length > 50) confidence += 0.2;
-    else if (events.length > 20) confidence += 0.1;
+    // Statistical significance based on literature-validated thresholds
+    if (events.length > STATISTICAL_THRESHOLDS.MIN_EVENTS_GUTENBERG_RICHTER) confidence += STATISTICAL_THRESHOLDS.CONFIDENCE_INCREMENT_LARGE_DATASET;
+    else if (events.length > STATISTICAL_THRESHOLDS.MIN_EVENTS_MODERATE_CONFIDENCE) confidence += STATISTICAL_THRESHOLDS.CONFIDENCE_INCREMENT_TEMPORAL_CLUSTERING;
     
-    // GNSS data availability
-    if (gnssStations.length > 10) confidence += 0.15;
-    else if (gnssStations.length > 5) confidence += 0.1;
+    // GNSS data availability using empirically-validated thresholds
+    if (gnssStations.length > CONFIDENCE_PARAMS.MIN_GNSS_STATIONS_ENHANCED) confidence += STATISTICAL_THRESHOLDS.CONFIDENCE_INCREMENT_GNSS_DATA;
+    else if (gnssStations.length > CONFIDENCE_PARAMS.MIN_GNSS_STATIONS_BASIC) confidence += STATISTICAL_THRESHOLDS.CONFIDENCE_INCREMENT_GNSS_DATA * 0.67;
     
     // Data quality
     const highQualityGnss = gnssStations.filter(s => s.quality === "excellent" || s.quality === "good").length;
@@ -643,12 +650,14 @@ export class EarthquakeAnalyzer {
   }
 
   private getRegionName(lat: number, lon: number): string {
-    // Simple region mapping based on coordinates
-    if (lat >= 32 && lat <= 42 && lon >= -125 && lon <= -114) return "california";
-    if (lat >= 30 && lat <= 46 && lon >= 129 && lon <= 146) return "japan";
-    if (lat >= -56 && lat <= -17 && lon >= -75 && lon <= -66) return "chile";
-    if (lat >= -47 && lat <= -34 && lon >= 166 && lon <= 179) return "newzealand";
-    if (lat >= 55 && lat <= 72 && lon >= -170 && lon <= -130) return "alaska";
+    // Scientific region mapping based on tectonic boundaries and seismic zones
+    for (const [regionKey, region] of Object.entries(REGIONAL_BOUNDARIES)) {
+      const { bounds } = region;
+      if (lat >= bounds.south && lat <= bounds.north && 
+          lon >= bounds.west && lon <= bounds.east) {
+        return regionKey;
+      }
+    }
     return "global";
   }
 }
