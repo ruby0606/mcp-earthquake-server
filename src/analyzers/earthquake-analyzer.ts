@@ -1,5 +1,10 @@
 import { IrisDataProvider, EarthquakeEvent } from "../providers/iris-provider.js";
 import { GnssDataProvider, DisplacementMeasurement } from "../providers/gnss-provider.js";
+import { 
+  MAGNITUDE_THRESHOLDS,
+  GNSS_THRESHOLDS,
+  ANALYSIS_DEFAULTS 
+} from "../config/scientific-constants.js";
 
 /**
  * Earthquake Analysis Engine
@@ -99,7 +104,7 @@ export class EarthquakeAnalyzer {
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
           minMagnitude: region.minMagnitude,
-          limit: 1000
+          limit: ANALYSIS_DEFAULTS.STANDARD_RESULT_LIMIT * 10
         }
       );
 
@@ -107,7 +112,7 @@ export class EarthquakeAnalyzer {
       const regionName = this.getRegionName(region.center.lat, region.center.lon);
       const gnssStations = await this.gnssProvider.monitorDisplacements({
         region: regionName,
-        threshold: 3.0, // 3mm threshold
+        threshold: GNSS_THRESHOLDS.ANOMALY_THRESHOLD, // Anomaly threshold
         timeWindow: region.timeWindow
       });
 
@@ -167,10 +172,10 @@ export class EarthquakeAnalyzer {
       const bValue = analysis.bValue;
       
       const probabilities = {
-        magnitude4: this.calculateMagnitudeProbability(4.0, bValue, lambda, forecastDays),
-        magnitude5: this.calculateMagnitudeProbability(5.0, bValue, lambda, forecastDays),
-        magnitude6: this.calculateMagnitudeProbability(6.0, bValue, lambda, forecastDays),
-        magnitude7: this.calculateMagnitudeProbability(7.0, bValue, lambda, forecastDays)
+        magnitude4: this.calculateMagnitudeProbability(MAGNITUDE_THRESHOLDS.MODERATE_IMPACT, bValue, lambda, forecastDays),
+        magnitude5: this.calculateMagnitudeProbability(MAGNITUDE_THRESHOLDS.SIGNIFICANT, bValue, lambda, forecastDays),
+        magnitude6: this.calculateMagnitudeProbability(MAGNITUDE_THRESHOLDS.STRONG, bValue, lambda, forecastDays),
+        magnitude7: this.calculateMagnitudeProbability(MAGNITUDE_THRESHOLDS.MAJOR, bValue, lambda, forecastDays)
       };
 
       const expectedEvents = lambda * forecastDays;
@@ -213,7 +218,7 @@ export class EarthquakeAnalyzer {
     temporalEvolution: string;
     significance: "low" | "moderate" | "high";
   }> {
-    if (events.length < 3) {
+    if (events.length < 3) { // Minimum events for statistical analysis
       return {
         isSwarm: false,
         swarmStart: "",
@@ -260,7 +265,7 @@ export class EarthquakeAnalyzer {
     // Determine if it's a swarm (vs mainshock-aftershock sequence)
     const magnitudeRange = Math.max(...events.map(e => e.magnitude)) - 
                           Math.min(...events.map(e => e.magnitude));
-    const isSwarm = magnitudeRange < 1.5 && events.length > 10; // Swarm criteria
+    const isSwarm = magnitudeRange < 1.5 && events.length > 10; // Swarm criteria: narrow magnitude range + many events
 
     const productivity = aftershocks.length / Math.pow(10, mainshock.magnitude - 3);
     const significance = this.assessSwarmSignificance(events, spatialExtent, duration);

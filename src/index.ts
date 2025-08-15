@@ -8,6 +8,21 @@ import { GnssDataProvider, DisplacementMeasurement } from "./providers/gnss-prov
 import { InSARDataProvider } from "./providers/insar-provider.js";
 import { USGSDataProvider } from "./providers/usgs-provider.js";
 import { EarthquakeAnalyzer } from "./analyzers/earthquake-analyzer.js";
+import { 
+  SYSTEM_CONFIG,
+  MAGNITUDE_THRESHOLDS,
+  ANALYSIS_DEFAULTS,
+  GNSS_THRESHOLDS,
+  INSAR_VELOCITY,
+  INSAR_QUALITY,
+  SAR_MISSIONS,
+  USGS_MAGNITUDE_FEEDS,
+  USGS_TIMEFRAMES,
+  VALIDATION,
+  REGIONAL_CENTERS,
+  GEOGRAPHIC_LIMITS,
+  INSAR_COHERENCE
+} from "./config/scientific-constants.js";
 
 /**
  * MCP Server for IRIS Seismological, GNSS, and InSAR Earthquake Data
@@ -31,7 +46,7 @@ import { EarthquakeAnalyzer } from "./analyzers/earthquake-analyzer.js";
 
 const server = new McpServer({
   name: "earthquake-data-server",
-  version: "1.0.0"
+  version: SYSTEM_CONFIG.VERSION
 });
 
 const irisProvider = new IrisDataProvider();
@@ -42,17 +57,7 @@ const analyzer = new EarthquakeAnalyzer();
 
 // Helper function to get regional coordinates
 function getRegionalCoordinates(region: string): { lat: number; lon: number } {
-  const regions: Record<string, { lat: number; lon: number }> = {
-    california: { lat: 37.0, lon: -120.0 },
-    japan: { lat: 36.0, lon: 138.0 },
-    chile: { lat: -33.0, lon: -71.0 },
-    newzealand: { lat: -41.0, lon: 174.0 },
-    alaska: { lat: 64.0, lon: -153.0 },
-    italy: { lat: 42.0, lon: 13.0 },
-    turkey: { lat: 39.0, lon: 35.0 },
-    global: { lat: 0.0, lon: 0.0 }
-  };
-  return regions[region] || regions.global;
+  return REGIONAL_CENTERS[region as keyof typeof REGIONAL_CENTERS] || REGIONAL_CENTERS.global;
 }
 
 // === RESOURCES ===
@@ -70,9 +75,9 @@ server.registerResource(
     const url = new URL(uri.href);
     const params = new URLSearchParams(url.search);
     const region = url.pathname.split('/')[2];
-    const start = params.get('starttime') || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const start = params.get('starttime') || new Date(Date.now() - ANALYSIS_DEFAULTS.STANDARD_TIME_WINDOW * 24 * 60 * 60 * 1000).toISOString();
     const end = params.get('endtime') || new Date().toISOString();
-    const minmag = params.get('minmag') || "4.0";
+    const minmag = params.get('minmag') || MAGNITUDE_THRESHOLDS.MODERATE_IMPACT.toString();
     
     const earthquakes = await irisProvider.getEarthquakeCatalog({
       region,
@@ -130,7 +135,7 @@ server.registerResource(
   async (uri) => {
     const url = new URL(uri.href);
     const params = new URLSearchParams(url.search);
-    const mag = params.get('magnitude') || "2.5";
+    const mag = params.get('magnitude') || MAGNITUDE_THRESHOLDS.LOCAL_SIGNIFICANCE.toString();
     const hours = params.get('hours') || "24";
     
     const recentQuakes = await irisProvider.getRealtimeEarthquakes({
@@ -161,7 +166,7 @@ server.registerResource(
     const url = new URL(uri.href);
     const params = new URLSearchParams(url.search);
     const region = url.pathname.split('/')[2];
-    const start = params.get('starttime') || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
+    const start = params.get('starttime') || new Date(Date.now() - ANALYSIS_DEFAULTS.EXTENDED_TIME_WINDOW * 24 * 60 * 60 * 1000).toISOString();
     const end = params.get('endtime') || new Date().toISOString();
     const method = params.get('method') || "SBAS";
     
@@ -170,10 +175,10 @@ server.registerResource(
     
     const timeSeries = await insarProvider.getDeformationTimeSeries({
       location: { latitude: coords.lat, longitude: coords.lon },
-      radius: 100,
+      radius: ANALYSIS_DEFAULTS.STANDARD_RADIUS,
       timeWindow: Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)),
-      velocityThreshold: 5.0,
-      coherenceThreshold: 0.6,
+      velocityThreshold: GNSS_THRESHOLDS.SIGNIFICANT_DISPLACEMENT,
+      coherenceThreshold: INSAR_COHERENCE.STANDARD_QUALITY,
       method: method as "SBAS" | "PSI" | "StaMPS"
     });
     
@@ -290,11 +295,11 @@ server.registerTool(
     title: "Analyze Seismic Activity",
     description: "Analyze earthquake patterns and assess seismic risk for a region",
     inputSchema: {
-      latitude: z.number().min(-90).max(90).describe("Latitude of the region center"),
-      longitude: z.number().min(-180).max(180).describe("Longitude of the region center"),
-      radius: z.number().min(1).max(20000).default(100).describe("Analysis radius in kilometers"),
-      timeWindow: z.number().min(1).max(3650).default(30).describe("Time window in days"),
-      minMagnitude: z.number().min(0).max(10).default(3.0).describe("Minimum earthquake magnitude")
+      latitude: z.number().min(GEOGRAPHIC_LIMITS.LATITUDE_MIN).max(GEOGRAPHIC_LIMITS.LATITUDE_MAX).describe("Latitude of the region center"),
+      longitude: z.number().min(GEOGRAPHIC_LIMITS.LONGITUDE_MIN).max(GEOGRAPHIC_LIMITS.LONGITUDE_MAX).describe("Longitude of the region center"),
+      radius: z.number().min(ANALYSIS_DEFAULTS.MIN_ANALYSIS_RADIUS).max(ANALYSIS_DEFAULTS.MAX_ANALYSIS_RADIUS).default(ANALYSIS_DEFAULTS.STANDARD_RADIUS).describe("Analysis radius in kilometers"),
+      timeWindow: z.number().min(VALIDATION.MIN_TIME_WINDOW_DAYS).max(VALIDATION.MAX_TIME_WINDOW_DAYS).default(ANALYSIS_DEFAULTS.STANDARD_TIME_WINDOW).describe("Time window in days"),
+      minMagnitude: z.number().min(VALIDATION.MIN_ANALYSIS_MAGNITUDE).max(VALIDATION.MAX_THEORETICAL_MAGNITUDE).default(MAGNITUDE_THRESHOLDS.REGIONAL_ANALYSIS).describe("Minimum earthquake magnitude")
     }
   },
   async ({ latitude, longitude, radius, timeWindow, minMagnitude }) => {
@@ -417,8 +422,8 @@ server.registerTool(
     description: "Check GNSS stations for unusual crustal movements that might indicate seismic activity",
     inputSchema: {
       region: z.string().describe("Region name (e.g., 'california', 'japan', 'chile')"),
-      threshold: z.number().min(0.1).max(1000).default(5.0).describe("Displacement threshold in millimeters"),
-      timeWindow: z.number().min(1).max(365).default(7).describe("Time window in days")
+      threshold: z.number().min(VALIDATION.MIN_DISPLACEMENT_THRESHOLD).max(VALIDATION.MAX_DISPLACEMENT_THRESHOLD).default(GNSS_THRESHOLDS.SIGNIFICANT_DISPLACEMENT).describe("Displacement threshold in millimeters"),
+      timeWindow: z.number().min(VALIDATION.MIN_TIME_WINDOW_DAYS).max(VALIDATION.MAX_TIME_WINDOW_DAYS).default(ANALYSIS_DEFAULTS.SHORT_TERM_WINDOW).describe("Time window in days")
     }
   },
   async ({ region, threshold, timeWindow }) => {
@@ -481,12 +486,12 @@ server.registerTool(
     title: "Analyze InSAR Ground Deformation",
     description: "Analyze satellite radar interferometry data for ground deformation patterns",
     inputSchema: {
-      latitude: z.number().min(-90).max(90).describe("Latitude of the analysis center"),
-      longitude: z.number().min(-180).max(180).describe("Longitude of the analysis center"),
-      radius: z.number().min(1).max(5000).default(50).describe("Analysis radius in kilometers"),
-      timeWindow: z.number().min(1).max(3650).default(365).describe("Time window in days"),
+      latitude: z.number().min(GEOGRAPHIC_LIMITS.LATITUDE_MIN).max(GEOGRAPHIC_LIMITS.LATITUDE_MAX).describe("Latitude of the analysis center"),
+      longitude: z.number().min(GEOGRAPHIC_LIMITS.LONGITUDE_MIN).max(GEOGRAPHIC_LIMITS.LONGITUDE_MAX).describe("Longitude of the analysis center"),
+      radius: z.number().min(ANALYSIS_DEFAULTS.MIN_ANALYSIS_RADIUS).max(5000).default(50).describe("Analysis radius in kilometers"),
+      timeWindow: z.number().min(ANALYSIS_DEFAULTS.MIN_ANALYSIS_RADIUS).max(3650).default(ANALYSIS_DEFAULTS.EXTENDED_TIME_WINDOW).describe("Time window in days"),
       method: z.enum(["SBAS", "PSI", "StaMPS"]).default("SBAS").describe("InSAR processing method"),
-      velocityThreshold: z.number().min(0.1).max(1000).default(5.0).describe("Velocity threshold in mm/year")
+      velocityThreshold: z.number().min(INSAR_VELOCITY.MIN_VELOCITY).max(INSAR_VELOCITY.MAX_VELOCITY).default(GNSS_THRESHOLDS.SIGNIFICANT_DISPLACEMENT).describe("Velocity threshold in mm/year")
     }
   },
   async ({ latitude, longitude, radius, timeWindow, method, velocityThreshold }) => {
@@ -536,7 +541,7 @@ ${Math.abs(timeSeries.trend.acceleration) > 0.1 ? "📈 Acceleration in deformat
 
 ### Data Reliability
 Quality: **${timeSeries.quality.overallQuality.toUpperCase()}**
-- Measurements with coherence > 0.7: ${Math.round(timeSeries.measurements.filter(m => m.coherence > 0.7).length / timeSeries.measurements.length * 100)}%
+- Measurements with coherence > ${INSAR_COHERENCE.HIGH_QUALITY}: ${Math.round(timeSeries.measurements.filter(m => m.coherence > INSAR_COHERENCE.HIGH_QUALITY).length / timeSeries.measurements.length * 100)}%
 - Atmospheric correction applied: ${Math.round(timeSeries.measurements.filter(m => m.atmosphericCorrection).length / timeSeries.measurements.length * 100)}%`
         }]
       };
@@ -559,11 +564,11 @@ server.registerTool(
     title: "Detect Rapid Ground Deformation",
     description: "Detect anomalous ground deformation that might indicate seismic or volcanic activity",
     inputSchema: {
-      north: z.number().min(-90).max(90).describe("Northern boundary latitude"),
-      south: z.number().min(-90).max(90).describe("Southern boundary latitude"),
-      east: z.number().min(-180).max(180).describe("Eastern boundary longitude"),
-      west: z.number().min(-180).max(180).describe("Western boundary longitude"),
-      velocityThreshold: z.number().min(0.1).max(1000).default(10).describe("Velocity threshold for detection in mm/year")
+      north: z.number().min(GEOGRAPHIC_LIMITS.LATITUDE_MIN).max(GEOGRAPHIC_LIMITS.LATITUDE_MAX).describe("Northern boundary latitude"),
+      south: z.number().min(GEOGRAPHIC_LIMITS.LATITUDE_MIN).max(GEOGRAPHIC_LIMITS.LATITUDE_MAX).describe("Southern boundary latitude"),
+      east: z.number().min(GEOGRAPHIC_LIMITS.LONGITUDE_MIN).max(GEOGRAPHIC_LIMITS.LONGITUDE_MAX).describe("Eastern boundary longitude"),
+      west: z.number().min(GEOGRAPHIC_LIMITS.LONGITUDE_MIN).max(GEOGRAPHIC_LIMITS.LONGITUDE_MAX).describe("Western boundary longitude"),
+      velocityThreshold: z.number().min(INSAR_VELOCITY.MIN_VELOCITY).max(INSAR_VELOCITY.MAX_VELOCITY).default(GNSS_THRESHOLDS.RAPID_DEFORMATION).describe("Velocity threshold for detection in mm/year")
     }
   },
   async ({ north, south, east, west, velocityThreshold }) => {
@@ -752,7 +757,7 @@ server.registerTool(
   async ({ timeframe, magnitude }) => {
     try {
       const earthquakes = await usgsProvider.getEarthquakes(timeframe, magnitude);
-      const significantEvents = earthquakes.features.filter(eq => eq.properties.mag >= 5.0);
+      const significantEvents = earthquakes.features.filter(eq => eq.properties.mag >= MAGNITUDE_THRESHOLDS.SIGNIFICANT);
       const recentEvents = earthquakes.features.slice(0, 10);
 
       return {
@@ -817,16 +822,16 @@ server.registerTool(
     inputSchema: {
       startTime: z.string().optional().describe("Start time (YYYY-MM-DD)"),
       endTime: z.string().optional().describe("End time (YYYY-MM-DD)"),
-      minLatitude: z.number().min(-90).max(90).optional().describe("Minimum latitude"),
-      maxLatitude: z.number().min(-90).max(90).optional().describe("Maximum latitude"),
-      minLongitude: z.number().min(-180).max(180).optional().describe("Minimum longitude"),
-      maxLongitude: z.number().min(-180).max(180).optional().describe("Maximum longitude"),
-      latitude: z.number().min(-90).max(90).optional().describe("Center latitude for radius search"),
-      longitude: z.number().min(-180).max(180).optional().describe("Center longitude for radius search"),
-      maxRadiusKm: z.number().min(1).max(20000).optional().describe("Maximum radius in kilometers"),
-      minMagnitude: z.number().min(0).max(10).optional().describe("Minimum magnitude"),
-      maxMagnitude: z.number().min(0).max(10).optional().describe("Maximum magnitude"),
-      limit: z.number().min(1).max(20000).default(100).describe("Maximum number of results")
+      minLatitude: z.number().min(GEOGRAPHIC_LIMITS.LATITUDE_MIN).max(GEOGRAPHIC_LIMITS.LATITUDE_MAX).optional().describe("Minimum latitude"),
+      maxLatitude: z.number().min(GEOGRAPHIC_LIMITS.LATITUDE_MIN).max(GEOGRAPHIC_LIMITS.LATITUDE_MAX).optional().describe("Maximum latitude"),
+      minLongitude: z.number().min(GEOGRAPHIC_LIMITS.LONGITUDE_MIN).max(GEOGRAPHIC_LIMITS.LONGITUDE_MAX).optional().describe("Minimum longitude"),
+      maxLongitude: z.number().min(GEOGRAPHIC_LIMITS.LONGITUDE_MIN).max(GEOGRAPHIC_LIMITS.LONGITUDE_MAX).optional().describe("Maximum longitude"),
+      latitude: z.number().min(GEOGRAPHIC_LIMITS.LATITUDE_MIN).max(GEOGRAPHIC_LIMITS.LATITUDE_MAX).optional().describe("Center latitude for radius search"),
+      longitude: z.number().min(GEOGRAPHIC_LIMITS.LONGITUDE_MIN).max(GEOGRAPHIC_LIMITS.LONGITUDE_MAX).optional().describe("Center longitude for radius search"),
+      maxRadiusKm: z.number().min(ANALYSIS_DEFAULTS.MIN_ANALYSIS_RADIUS).max(ANALYSIS_DEFAULTS.MAX_ANALYSIS_RADIUS).optional().describe("Maximum radius in kilometers"),
+      minMagnitude: z.number().min(MAGNITUDE_THRESHOLDS.MINIMUM_DETECTABLE).max(MAGNITUDE_THRESHOLDS.THEORETICAL_MAX).optional().describe("Minimum magnitude"),
+      maxMagnitude: z.number().min(MAGNITUDE_THRESHOLDS.MINIMUM_DETECTABLE).max(MAGNITUDE_THRESHOLDS.THEORETICAL_MAX).optional().describe("Maximum magnitude"),
+      limit: z.number().min(1).max(ANALYSIS_DEFAULTS.MAX_SEARCH_RESULTS).default(ANALYSIS_DEFAULTS.STANDARD_RESULT_LIMIT).describe("Maximum number of results")
     }
   },
   async (params) => {
@@ -966,8 +971,8 @@ server.registerTool(
     title: "Get USGS Seismic Hazard Assessment",
     description: "Retrieve probabilistic seismic hazard assessment for a location",
     inputSchema: {
-      latitude: z.number().min(-90).max(90).describe("Latitude of the location"),
-      longitude: z.number().min(-180).max(180).describe("Longitude of the location")
+      latitude: z.number().min(GEOGRAPHIC_LIMITS.LATITUDE_MIN).max(GEOGRAPHIC_LIMITS.LATITUDE_MAX).describe("Latitude of the location"),
+      longitude: z.number().min(GEOGRAPHIC_LIMITS.LONGITUDE_MIN).max(GEOGRAPHIC_LIMITS.LONGITUDE_MAX).describe("Longitude of the location")
     }
   },
   async ({ latitude, longitude }) => {
