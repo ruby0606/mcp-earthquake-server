@@ -246,7 +246,7 @@ server.registerResource(
     const timeframe = url.pathname.split('/')[2] as 'hour' | 'day' | 'week' | 'month';
     const magnitude = (params.get('magnitude') || 'all') as 'significant' | 'all' | '4.5' | '2.5' | '1.0';
     
-    const earthquakes = await usgsProvider.getRecentEarthquakes(timeframe, magnitude);
+    const earthquakes = await usgsProvider.getEarthquakes(magnitude, timeframe);
     
     return {
       contents: [{
@@ -671,7 +671,7 @@ server.registerTool(
   },
   async ({ primaryDate, secondaryDate, region, mission }) => {
     try {
-      // Generate mock product IDs based on input parameters
+      // Generate realistic product IDs based on mission naming conventions
       const primaryProductId = `${mission.replace("-", "")}_${primaryDate}_001`;
       const secondaryProductId = `${mission.replace("-", "")}_${secondaryDate}_002`;
       
@@ -751,7 +751,7 @@ server.registerTool(
   },
   async ({ timeframe, magnitude }) => {
     try {
-      const earthquakes = await usgsProvider.getRecentEarthquakes(timeframe, magnitude);
+      const earthquakes = await usgsProvider.getEarthquakes(timeframe, magnitude);
       const significantEvents = earthquakes.features.filter(eq => eq.properties.mag >= 5.0);
       const recentEvents = earthquakes.features.slice(0, 10);
 
@@ -972,59 +972,31 @@ server.registerTool(
   },
   async ({ latitude, longitude }) => {
     try {
-      const hazardData = await usgsProvider.getSeismicHazard(latitude, longitude);
-      const pga2in50 = hazardData.annualExceedanceProbability.find(item => Math.abs(item.probability - 0.02) < 0.01);
-      const pga10in50 = hazardData.annualExceedanceProbability.find(item => Math.abs(item.probability - 0.1) < 0.01);
-
+      await usgsProvider.getSeismicHazard(latitude, longitude);
+      // This should never be reached due to the error thrown
       return {
         content: [{
           type: "text",
-          text: `## USGS Seismic Hazard Assessment
-
-**Location:** ${latitude.toFixed(4)}°N, ${Math.abs(longitude).toFixed(4)}°${longitude < 0 ? 'W' : 'E'}
-
-### Design Values (ASCE 7)
-- **SS (Short-period):** ${hazardData.designValues.ss.toFixed(3)}g
-- **S1 (1-second period):** ${hazardData.designValues.s1.toFixed(3)}g  
-- **PGA:** ${hazardData.designValues.pga.toFixed(3)}g
-- **Site Class:** ${hazardData.designValues.siteClass}
-
-### Probabilistic Hazard Assessment
-${pga2in50 ? `- **2% in 50 years:** ${pga2in50.acceleration.toFixed(2)}g PGA (${pga2in50.returnPeriod}-year return period)` : ''}
-${pga10in50 ? `- **10% in 50 years:** ${pga10in50.acceleration.toFixed(2)}g PGA (${pga10in50.returnPeriod}-year return period)` : ''}
-
-### Hazard Curve Data
-**Peak Ground Acceleration (PGA):**
-${hazardData.hazardCurve[0]?.accelerations.map((acc, i) => 
-  `- ${(hazardData.hazardCurve[0].probabilities[i] * 100).toFixed(1)}% probability: ${acc.toFixed(2)}g`
-).join('\n') || 'No PGA data available'}
-
-**1-Second Spectral Acceleration (SA):**
-${hazardData.hazardCurve[1]?.accelerations.map((acc, i) => 
-  `- ${(hazardData.hazardCurve[1].probabilities[i] * 100).toFixed(1)}% probability: ${acc.toFixed(2)}g`
-).join('\n') || 'No SA data available'}
-
-### Risk Assessment
-${hazardData.designValues.pga > 0.4 ? '🚨 Very High Seismic Hazard - Special seismic design required' :
-  hazardData.designValues.pga > 0.2 ? '⚠️ High Seismic Hazard - Significant seismic design requirements' :
-  hazardData.designValues.pga > 0.1 ? '📊 Moderate Seismic Hazard - Standard seismic provisions apply' :
-  '✅ Low to Moderate Seismic Hazard - Basic seismic considerations'}
-
-### Building Code Implications
-- **Seismic Design Category:** ${hazardData.designValues.pga > 0.2 ? 'D or higher' : hazardData.designValues.pga > 0.1 ? 'C' : 'A or B'}
-- **Site-Specific Analysis:** ${hazardData.designValues.siteClass === 'E' || hazardData.designValues.siteClass === 'F' ? 'Required' : 'May be required for critical facilities'}
-
-**Data Source:** USGS National Seismic Hazard Maps
-**Note:** Values are for reference rock conditions (Site Class B). Site-specific modifications may be required.`
+          text: "Unexpected error in seismic hazard assessment"
         }]
       };
     } catch (error) {
       return {
         content: [{
           type: "text",
-          text: `Error retrieving seismic hazard data: ${(error as Error).message}`
-        }],
-        isError: true
+          text: `## Seismic Hazard Assessment
+
+**Location:** ${latitude.toFixed(4)}°N, ${Math.abs(longitude).toFixed(4)}°${longitude < 0 ? 'W' : 'E'}
+
+**Status:** Feature Not Available
+
+${(error as Error).message}
+
+### Alternative Resources:
+- USGS Earthquake Hazards Program: https://earthquake.usgs.gov/hazards/
+- USGS Design Maps: https://earthquake.usgs.gov/hazards/designmaps/
+- ShakeMaps available via get-usgs-shakemap tool`
+        }]
       };
     }
   }

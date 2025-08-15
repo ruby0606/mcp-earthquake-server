@@ -247,44 +247,10 @@ export class IrisDataProvider {
         quality: options.quality || "B"
       });
 
-      // Note: For demonstration, we're simulating waveform data
-      // In a real implementation, you'd fetch binary miniSEED data and process it
-      console.error(`Fetching waveform: ${this.fdsnDataSelect}/query?${params.toString()}`);
+      // Production waveform data requires fetching binary miniSEED data and processing
+      console.log(`Production waveform fetching requires: ${this.fdsnDataSelect}/query?${params.toString()}`);
 
-      // Simulate waveform processing
-      const duration = new Date(options.endTime).getTime() - new Date(options.startTime).getTime();
-      const durationSeconds = duration / 1000;
-      const sampleRate = 40; // Hz, typical for broadband seismometers
-      const numSamples = Math.floor(durationSeconds * sampleRate);
-      
-      // Generate synthetic waveform data for demonstration
-      // In production, this would be actual miniSEED data processing
-      const samples = Array.from({ length: numSamples }, (_, i) => {
-        const t = i / sampleRate;
-        // Simulate earthquake signal with noise
-        const noise = (Math.random() - 0.5) * 0.1;
-        const signal = Math.exp(-t * 0.1) * Math.sin(2 * Math.PI * 5 * t) * 
-                      (t < 10 ? 1 : 0); // 10-second earthquake signal
-        return (signal + noise) * 1000000; // Convert to counts
-      });
-
-      const peakAmplitude = Math.max(...samples.map(Math.abs));
-      const rmsAmplitude = Math.sqrt(samples.reduce((sum, s) => sum + s * s, 0) / samples.length);
-
-      return {
-        eventId: options.eventId,
-        network: options.network,
-        station: options.station,
-        channel: options.channel,
-        startTime: options.startTime,
-        endTime: options.endTime,
-        sampleRate,
-        samples,
-        duration: durationSeconds,
-        peakAmplitude,
-        rmsAmplitude,
-        quality: "Good" // Would be determined from actual data quality
-      };
+      throw new Error("Production waveform data retrieval requires miniSEED data processing capabilities and specialized seismic data libraries like ObsPy. Please integrate with IRIS web services directly for waveform data access.");
     } catch (error) {
       console.error("Error fetching IRIS waveform data:", error);
       throw new Error(`Failed to fetch waveform data: ${(error as Error).message}`);

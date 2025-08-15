@@ -1,14 +1,26 @@
 <!-- GitHub Copilot Instructions for MCP Earthquake Monitoring Server -->
 <!-- This file provides workspace-specific instructions to help Copilot understand the project context and capabilities -->
 
-## 🌍 PROJECT STATUS: PRODUCTION READY ✅
+##  PROJECT STATUS: PRODUCTION READY 
+
+###  COPILOT CONTEXT:
+
+When working on this project:
+- **Data Sources**: Always respect attribution requirements and usage terms
+- **Global Scope**: Support worldwide coordinates, no geographic restrictions  
+- **Error Handling**: Implement proper validation for seismological parameters
+- **Performance**: Consider API rate limits and caching strategies
+- **Scientific Accuracy**: Cross-reference multiple sources when possible
+- **Emergency Use**: Note this is for research only, not emergency response
+- **Data Integrity**: Always use real API calls, don't use mock data
+
 
 ### COMPLETED MILESTONES:
 - [x] **Project Requirements Clarified** - Global earthquake monitoring via MCP server
 - [x] **Project Scaffolded** - Complete TypeScript MCP server implementation  
 - [x] **Multi-source Integration** - IRIS + USGS + GNSS + InSAR data providers
 - [x] **Global Coverage Implemented** - Worldwide earthquake monitoring (no geographic limits)
-- [x] **Code Review Completed** - Grade A (92/100), all critical issues resolved
+- [x] **Code Review Completed** - All critical issues resolved
 - [x] **Comprehensive Documentation** - README, Developer Setup, Research Guide
 - [x] **Data Attribution Added** - Proper citations and usage terms for all sources
 - [x] **GitHub Repository Live** - https://github.com/ruby0606/mcp-earthquake-server
@@ -77,14 +89,6 @@ npm start
 - **Error Handling**: Comprehensive validation and graceful degradation
 - **Documentation**: Complete developer and researcher guides
 
-### 🎯 COPILOT CONTEXT:
 
-When working on this project:
-- **Data Sources**: Always respect attribution requirements and usage terms
-- **Global Scope**: Support worldwide coordinates, no geographic restrictions  
-- **Error Handling**: Implement proper validation for seismological parameters
-- **Performance**: Consider API rate limits and caching strategies
-- **Scientific Accuracy**: Cross-reference multiple sources when possible
-- **Emergency Use**: Note this is for research only, not emergency response
 
 **Current Focus**: Production deployment, community sharing, and enhancement planning for machine learning earthquake prediction features.

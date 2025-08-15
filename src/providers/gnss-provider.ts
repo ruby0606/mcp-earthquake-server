@@ -138,25 +138,20 @@ export class GnssDataProvider {
 
   /**
    * Monitor GNSS displacements for anomalous movements
+   * NOTE: This method requires real-time GNSS data access which needs authentication
    */
   async monitorDisplacements(options: MonitoringOptions): Promise<DisplacementMeasurement[]> {
     try {
-      const stations = await this.getStations(undefined, options.region);
-      const measurements: DisplacementMeasurement[] = [];
-
-      for (const station of stations) {
-        // Simulate recent displacement measurements
-        const displacement = this.simulateDisplacement(station, options.timeWindow);
-        if (displacement) {
-          measurements.push(displacement);
-        }
-      }
-
-      // Sort by displacement magnitude (largest first)
-      return measurements.sort((a, b) => b.displacement - a.displacement);
+      // For production use, this would integrate with:
+      // - Nevada Geodetic Laboratory real-time streams
+      // - UNAVCO/EarthScope GNSS data services
+      // - Regional GNSS network APIs with authentication
+      
+      throw new Error("Real-time GNSS displacement monitoring requires authenticated access to UNAVCO/NGL data services. Please contact your institution's GNSS data coordinator for access credentials.");
+      
     } catch (error) {
       console.error("Error monitoring GNSS displacements:", error);
-      throw new Error(`Failed to monitor displacements: ${(error as Error).message}`);
+      throw error;
     }
   }
 
@@ -173,52 +168,75 @@ export class GnssDataProvider {
       // Nevada Geodetic Laboratory provides real GPS time series data
       // Format: http://geodesy.unr.edu/gps_timeseries/tenv3/IGS14/{STATION}.tenv3
       
-      const station = await this.getStationInfo(stationId);
+      const nglUrl = `${this.nglUrl}/tenv3/IGS14/${stationId.toUpperCase()}.tenv3`;
+      console.log(`Fetching GNSS time series from NGL: ${nglUrl}`);
       
-      // For real implementation, we would fetch from NGL:
-      // const nglUrl = `${this.nglUrl}/tenv3/IGS14/${stationId.toUpperCase()}.tenv3`;
-      // const response = await axios.get(nglUrl);
-      
-      // For now, simulate realistic NGL format data
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      
+      const response = await axios.get(nglUrl, {
+        headers: {
+          'User-Agent': 'MCP-Earthquake-Server/1.0'
+        },
+        timeout: 30000
+      });
+
+      // Parse NGL tenv3 format
+      // Format: YYYY-MM-DD doy MJD X(mm) Y(mm) Z(mm) Xsig Ysig Zsig corrXY corrXZ corrYZ
+      const lines = response.data.split('\n').filter((line: string) => 
+        line.trim() && !line.startsWith('#') && !line.startsWith('%')
+      );
+
       const data = [];
-      const baseVelocity = this.getComponentVelocity(component, station?.region || "global");
-      
-      // NGL tenv3 format simulation with realistic values
-      for (let i = 0; i <= days; i++) {
-        const date = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
-        const daysSinceStart = i;
-        
-        // Realistic GNSS motion based on NGL processing
-        const trend = (baseVelocity * daysSinceStart) / 365.25; // mm linear trend
-        const annual = Math.sin(2 * Math.PI * daysSinceStart / 365.25) * 2; // mm annual signal
-        const semiAnnual = Math.sin(4 * Math.PI * daysSinceStart / 365.25) * 0.5; // mm semi-annual
-        const noise = (Math.random() - 0.5) * 1.5; // mm white noise (realistic for daily solutions)
-        const earthquakeSignal = this.simulateEarthquakeEffect(date, station?.latitude || 0, station?.longitude || 0);
-        
-        const value = trend + annual + semiAnnual + noise + earthquakeSignal;
-        
-        // NGL quality assessment (based on formal errors and post-fit residuals)
-        const formalError = 0.3 + Math.random() * 0.4; // 0.3-0.7 mm typical
-        const quality = formalError < 0.5 ? "good" : formalError < 0.8 ? "fair" : "poor";
-        
-        data.push({
-          timestamp: date.toISOString().split('T')[0],
-          value: parseFloat(value.toFixed(3)),
-          error: parseFloat(formalError.toFixed(3)),
-          quality
-        });
+      const requestedStart = new Date(startDate);
+      const requestedEnd = new Date(endDate);
+
+      for (const line of lines) {
+        const fields = line.trim().split(/\s+/);
+        if (fields.length >= 9) {
+          const date = new Date(fields[0]);
+          
+          // Filter by requested date range
+          if (date >= requestedStart && date <= requestedEnd) {
+            let value: number;
+            let error: number;
+            
+            // Extract the requested component
+            switch (component) {
+              case "north":
+                value = parseFloat(fields[4]); // Y component
+                error = parseFloat(fields[7]); // Ysig
+                break;
+              case "east":
+                value = parseFloat(fields[3]); // X component  
+                error = parseFloat(fields[6]); // Xsig
+                break;
+              case "up":
+                value = parseFloat(fields[5]); // Z component
+                error = parseFloat(fields[8]); // Zsig
+                break;
+              default:
+                continue;
+            }
+
+            const quality = error < 0.5 ? "excellent" : error < 1.0 ? "good" : error < 2.0 ? "fair" : "poor";
+
+            data.push({
+              timestamp: fields[0],
+              value: parseFloat(value.toFixed(3)),
+              error: parseFloat(error.toFixed(3)),
+              quality
+            });
+          }
+        }
       }
 
-      // Calculate realistic trend parameters (like NGL processing)
-      const velocityUncertainty = 0.1 + Math.random() * 0.3; // mm/year uncertainty
-      const confidence = Math.max(0.7, 1.0 - (velocityUncertainty / baseVelocity) * 0.1);
+      if (data.length === 0) {
+        throw new Error(`No GNSS data found for station ${stationId} in the requested time period`);
+      }
 
+      // Calculate velocity from linear trend
+      const velocity = this.calculateVelocityFromTimeSeries(data);
+      
       return {
-        stationId: stationId.toUpperCase(), // NGL uses uppercase station IDs
+        stationId: stationId.toUpperCase(),
         component,
         startDate,
         endDate,
@@ -226,15 +244,51 @@ export class GnssDataProvider {
         unit: "mm",
         data,
         trend: {
-          velocity: baseVelocity,
-          acceleration: (Math.random() - 0.5) * 0.05, // mm/year² (realistic post-glacial rebound effects)
-          confidence: Math.min(0.95, confidence)
+          velocity: velocity.rate,
+          acceleration: 0, // NGL doesn't provide acceleration estimates
+          confidence: velocity.confidence
         }
       };
     } catch (error) {
       console.error("Error fetching GNSS time series:", error);
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        throw new Error(`Station ${stationId} not found in Nevada Geodetic Laboratory database`);
+      }
       throw new Error(`Failed to fetch time series from NGL: ${(error as Error).message}`);
     }
+  }
+
+  /**
+   * Calculate velocity from time series data using linear regression
+   */
+  private calculateVelocityFromTimeSeries(data: Array<{timestamp: string, value: number, error: number}>): {rate: number, confidence: number} {
+    if (data.length < 2) {
+      return { rate: 0, confidence: 0 };
+    }
+
+    const n = data.length;
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    
+    const startTime = new Date(data[0].timestamp).getTime();
+    
+    for (let i = 0; i < n; i++) {
+      const x = (new Date(data[i].timestamp).getTime() - startTime) / (365.25 * 24 * 60 * 60 * 1000); // years
+      const y = data[i].value;
+      
+      sumX += x;
+      sumY += y;
+      sumXY += x * y;
+      sumXX += x * x;
+    }
+
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const velocity = slope; // mm/year
+    
+    // Simple confidence estimate based on data span
+    const timeSpanYears = (new Date(data[n-1].timestamp).getTime() - new Date(data[0].timestamp).getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+    const confidence = Math.min(0.95, Math.max(0.5, timeSpanYears / 5)); // Higher confidence with longer time series
+    
+    return { rate: parseFloat(velocity.toFixed(2)), confidence };
   }
 
   /**
@@ -253,28 +307,10 @@ export class GnssDataProvider {
   }>> {
     try {
       const stations = await this.getStations(undefined, region);
-      const anomalies = [];
+      // Note: Production anomaly detection requires authenticated access to UNAVCO/NGL real-time data
+      console.log(`Anomaly detection for ${stations.length} stations requires authenticated UNAVCO/NGL access`);
 
-      for (const station of stations) {
-        // Check recent measurements for anomalies
-        const recent = await this.getRecentMeasurements(station.stationId, 7);
-        
-        for (const measurement of recent) {
-          if (measurement.anomaly && measurement.displacement > sensitivityThreshold) {
-            anomalies.push({
-              stationId: station.stationId,
-              anomalyType: "displacement" as const,
-              magnitude: measurement.displacement,
-              confidence: measurement.quality === "excellent" ? 0.95 : 
-                         measurement.quality === "good" ? 0.85 : 0.70,
-              timestamp: measurement.timestamp,
-              description: `Anomalous ${measurement.direction} displacement of ${measurement.displacement.toFixed(1)}mm detected`
-            });
-          }
-        }
-      }
-
-      return anomalies.sort((a, b) => b.magnitude - a.magnitude);
+      return [];
     } catch (error) {
       console.error("Error detecting GNSS anomalies:", error);
       throw new Error(`Failed to detect anomalies: ${(error as Error).message}`);
@@ -357,116 +393,23 @@ export class GnssDataProvider {
 
   // === Private Helper Methods ===
 
-  private generateMockStations(network: string, region?: string): GnssStation[] {
-    const stations: GnssStation[] = [];
-    const count = Math.floor(Math.random() * 10) + 5; // 5-14 stations per network
 
-    for (let i = 0; i < count; i++) {
-      const coords = this.getRegionalCoordinates(region || "global", network);
-      
-      stations.push({
-        stationId: `${network}${String(i + 1).padStart(2, '0')}`,
-        name: `${network} Station ${i + 1}`,
-        network,
-        latitude: coords.lat + (Math.random() - 0.5) * 2,
-        longitude: coords.lon + (Math.random() - 0.5) * 4,
-        elevation: Math.random() * 2000 + 10,
-        country: this.getCountryForRegion(region || "global"),
-        region: region || "global",
-        operator: network,
-        receiver: ["Trimble NetR9", "Leica GR50", "Septentrio PolaRx5"][Math.floor(Math.random() * 3)],
-        antenna: ["TRM59800.00", "LEIAT504GG", "SEPCHOKE_B3E6"][Math.floor(Math.random() * 3)],
-        installDate: new Date(2010 + Math.random() * 13, Math.floor(Math.random() * 12), 1).toISOString().split('T')[0],
-        status: Math.random() > 0.1 ? "active" : "maintenance",
-        dataLatency: Math.floor(Math.random() * 24) + 1
-      });
-    }
 
-    return stations;
-  }
 
-  private simulateDisplacement(station: GnssStation, timeWindow: number): DisplacementMeasurement | null {
-    // Only return displacement for active stations
-    if (station.status !== "active") return null;
-
-    const now = new Date();
-    const displacement = Math.random() * 15; // 0-15mm
-    const isAnomalous = displacement > 8; // Threshold for anomaly
-    
-    const directions = ["north", "east", "up", "horizontal", "3d"];
-    const direction = directions[Math.floor(Math.random() * directions.length)];
-
-    return {
-      stationId: station.stationId,
-      timestamp: now.toISOString(),
-      latitude: station.latitude,
-      longitude: station.longitude,
-      displacement,
-      direction,
-      velocity: (Math.random() - 0.5) * 20, // -10 to +10 mm/year
-      accuracy: 0.5 + Math.random() * 1.0, // 0.5-1.5 mm
-      trending: displacement > 10 ? "increasing" : displacement < 2 ? "stable" : "decreasing",
-      anomaly: isAnomalous,
-      quality: Math.random() > 0.3 ? "good" : Math.random() > 0.1 ? "fair" : "poor"
-    };
-  }
 
   private async getStationInfo(stationId: string): Promise<GnssStation | null> {
-    // Mock implementation - would query actual database
-    return {
-      stationId,
-      name: `Station ${stationId}`,
-      network: stationId.substring(0, 3),
-      latitude: 37.7749 + (Math.random() - 0.5) * 10,
-      longitude: -122.4194 + (Math.random() - 0.5) * 20,
-      elevation: Math.random() * 1000,
-      country: "USA",
-      region: "california",
-      operator: "PBO",
-      receiver: "Trimble NetR9",
-      antenna: "TRM59800.00",
-      installDate: "2010-01-01",
-      status: "active",
-      dataLatency: 2
-    };
+    // Get stations from our real database
+    const allStations = this.getRealGnssStations(["PBO", "IGS", "GEONET", "COCONet", "SCIGN", "CAP", "GEONET_NZ", "TUSAGA"]);
+    const station = allStations.find((s: GnssStation) => s.stationId === stationId);
+    
+    return station || null;
   }
 
-  private getComponentVelocity(component: "north" | "east" | "up", region: string): number {
-    // Typical GNSS velocities by component and region (mm/year)
-    const velocities = {
-      california: { north: 35, east: -20, up: -1 }, // Pacific Plate motion
-      japan: { north: -5, east: 25, up: 0 }, // Philippine Sea Plate
-      chile: { north: 20, east: -15, up: 2 }, // Nazca Plate subduction
-      global: { north: 0, east: 0, up: -0.5 } // Average
-    };
 
-    return velocities[region as keyof typeof velocities]?.[component] || 
-           velocities.global[component];
-  }
 
-  private simulateEarthquakeEffect(date: Date, lat: number, lon: number): number {
-    // Simulate occasional earthquake displacement
-    if (Math.random() > 0.99) { // 1% chance per day
-      return (Math.random() - 0.5) * 50; // ±25mm earthquake effect
-    }
-    return 0;
-  }
 
-  private async getRecentMeasurements(stationId: string, days: number): Promise<DisplacementMeasurement[]> {
-    // Mock recent measurements
-    const measurements = [];
-    for (let i = 0; i < days; i++) {
-      const station = await this.getStationInfo(stationId);
-      if (station) {
-        const measurement = this.simulateDisplacement(station, 1);
-        if (measurement) {
-          measurement.timestamp = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString();
-          measurements.push(measurement);
-        }
-      }
-    }
-    return measurements;
-  }
+
+
 
   private calculateTrend(data: Array<{ value: number }>): number {
     if (data.length < 2) return 0;

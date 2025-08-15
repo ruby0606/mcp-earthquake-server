@@ -276,13 +276,4 @@ export class USGSDataProvider {
       throw new Error(`Failed to get earthquake details: ${(error as Error).message}`);
     }
   }
-
-  /**
-   * Get seismic hazard assessment for a location
-   * Note: This is a placeholder implementation - USGS Design Maps API requires specific implementation
-   */
-  async getSeismicHazard(latitude: number, longitude: number): Promise<USGSHazardData> {
-    // For production use, implement USGS Design Maps API integration
-    throw new Error("Seismic hazard assessment requires USGS Design Maps API integration. This feature is not yet implemented in this production version. Please use the USGS Earthquake Hazards Program Design Maps tools at https://earthquake.usgs.gov/hazards/designmaps/");
-  }
 }
