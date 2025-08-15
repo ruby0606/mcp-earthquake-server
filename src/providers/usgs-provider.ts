@@ -135,7 +135,7 @@ export class USGSDataProvider {
    */
   async getRecentEarthquakes(timeframe: 'hour' | 'day' | 'week' | 'month' = 'day', magnitude: 'significant' | 'all' | '4.5' | '2.5' | '1.0' = 'all'): Promise<USGSFeatureCollection> {
     try {
-      // USGS provides standardized feeds
+      // USGS provides standardized real-time feeds
       let feedUrl: string;
       
       if (magnitude === 'significant') {
@@ -145,32 +145,39 @@ export class USGSDataProvider {
         feedUrl = `${this.baseUrl}/summary/${magFilter}_${timeframe}.geojson`;
       }
 
-      // Simulate API response with realistic data
-      const mockData: USGSFeatureCollection = {
-        type: 'FeatureCollection',
-        metadata: {
-          generated: Date.now(),
-          url: feedUrl,
-          title: `USGS ${magnitude} earthquakes, past ${timeframe}`,
-          status: 200,
-          api: '1.10.3',
-          count: this.generateMockCount(timeframe, magnitude)
-        },
-        features: this.generateMockEarthquakes(timeframe, magnitude)
-      };
+      console.log(`Fetching USGS data from: ${feedUrl}`);
 
-      return mockData;
+      const response = await fetch(feedUrl, {
+        headers: {
+          'User-Agent': 'MCP-Earthquake-Server/1.0',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`USGS API returned ${response.status}: ${response.statusText}`);
+      }
+
+      const data: USGSFeatureCollection = await response.json();
+      
+      // Validate the response structure
+      if (!data.type || data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
+        throw new Error('Invalid GeoJSON response from USGS API');
+      }
+
+      return data;
     } catch (error) {
+      console.error('Error fetching USGS earthquake data:', error);
       throw new Error(`Failed to fetch USGS earthquake data: ${(error as Error).message}`);
     }
   }
 
   /**
-   * Search earthquakes with custom parameters
+   * Search earthquakes with custom parameters using USGS FDSNWS API
    */
   async searchEarthquakes(params: USGSSearchParams): Promise<USGSFeatureCollection> {
     try {
-      // Build query parameters
+      // Build query parameters for USGS FDSNWS API
       const queryParams = new URLSearchParams();
       
       Object.entries(params).forEach(([key, value]) => {
@@ -179,25 +186,56 @@ export class USGSDataProvider {
         }
       });
       
+      // Force GeoJSON format for consistent parsing
       queryParams.append('format', 'geojson');
+      
+      // Set reasonable defaults
+      if (!queryParams.has('limit')) {
+        queryParams.append('limit', '100');
+      }
+      if (!queryParams.has('orderby')) {
+        queryParams.append('orderby', 'time');
+      }
 
-      // Generate mock search results
-      const count = Math.min(params.limit || 100, 500);
-      const mockData: USGSFeatureCollection = {
-        type: 'FeatureCollection',
-        metadata: {
-          generated: Date.now(),
-          url: `${this.apiUrl}/query?${queryParams.toString()}`,
-          title: 'Custom earthquake search results',
-          status: 200,
-          api: '1.10.3',
-          count
-        },
-        features: this.generateCustomEarthquakes(params, count)
-      };
+      const url = `${this.apiUrl}/query?${queryParams.toString()}`;
+      console.log(`USGS Search URL: ${url}`);
 
-      return mockData;
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'MCP-Earthquake-Server/1.0',
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 204) {
+          // No content found - return empty results
+          return {
+            type: 'FeatureCollection',
+            metadata: {
+              generated: Date.now(),
+              url,
+              title: 'USGS Earthquake Search - No Results',
+              status: 204,
+              api: '1.10.3',
+              count: 0
+            },
+            features: []
+          };
+        }
+        throw new Error(`USGS API returned ${response.status}: ${response.statusText}`);
+      }
+
+      const data: USGSFeatureCollection = await response.json();
+      
+      // Validate the response structure
+      if (!data.type || data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
+        throw new Error('Invalid GeoJSON response from USGS search API');
+      }
+
+      return data;
     } catch (error) {
+      console.error('Error searching USGS earthquakes:', error);
       throw new Error(`Failed to search USGS earthquakes: ${(error as Error).message}`);
     }
   }
