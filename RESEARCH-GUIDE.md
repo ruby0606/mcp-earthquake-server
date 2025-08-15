@@ -2,6 +2,17 @@
 
 A specialized tool for seismologists, geophysicists, and earthquake researchers providing comprehensive access to global seismic data through a unified interface.
 
+## ⚠️ **RESEARCH DATA USAGE NOTICE**
+
+**This tool provides access to authoritative earthquake data sources. When using this data in research publications, please:**
+
+1. **Cite Data Sources**: Include proper acknowledgments for IRIS, USGS, GNSS networks, and satellite missions
+2. **Follow Academic Standards**: Respect institutional data sharing policies
+3. **Verify Critical Results**: Cross-reference important findings with multiple sources
+4. **Non-Emergency Use**: This is not suitable for earthquake emergency response or public safety warnings
+
+**See README.md "Data Attribution & Usage" section for complete citation requirements.**
+
 ## 🎯 For Seismologists and Researchers
 
 ### What This Tool Provides

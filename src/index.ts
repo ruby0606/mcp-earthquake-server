@@ -12,6 +12,15 @@ import { EarthquakeAnalyzer } from "./analyzers/earthquake-analyzer.js";
 /**
  * MCP Server for IRIS Seismological, GNSS, and InSAR Earthquake Data
  * 
+ * DATA ATTRIBUTION NOTICE:
+ * - IRIS data: Funded by NSF/SAGE (EAR-1851048)
+ * - USGS data: U.S. Geological Survey Earthquake Hazards Program  
+ * - GNSS data: UNAVCO/EarthScope and global network providers
+ * - InSAR data: ESA Sentinel-1, JAXA ALOS-2, DLR TerraSAR-X missions
+ * 
+ * USAGE: Research and educational purposes only. Not for emergency response.
+ * See README.md for complete attribution requirements and usage terms.
+ * 
  * This server provides access to:
  * - IRIS earthquake catalog and waveform data
  * - GNSS/GPS station displacement measurements

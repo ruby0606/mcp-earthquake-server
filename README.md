@@ -307,6 +307,39 @@ Contributions are welcome! Areas for improvement:
    - Alert system integration
    - Mobile notifications
 
+## Data Attribution & Usage
+
+### **📋 Required Citations**
+
+When using data from this server in research or publications, please include appropriate citations:
+
+**IRIS Data:**
+> Data services products from the IRIS DMC are funded through the Seismological Facilities for the Advancement of Geoscience (SAGE) Award of the National Science Foundation under Cooperative Support Agreement EAR-1851048.
+
+**USGS Data:**
+> Earthquake data provided by the U.S. Geological Survey Earthquake Hazards Program. Any use of trade, firm, or product names is for descriptive purposes only and does not imply endorsement by the U.S. Government.
+
+**GNSS Data:**
+> GNSS data provided by UNAVCO/EarthScope, Nevada Geodetic Laboratory, and contributing global networks. Please acknowledge the specific network operators in your research.
+
+**InSAR Data:**
+> SAR data courtesy of ESA Sentinel-1, JAXA ALOS-2, DLR TerraSAR-X missions and contributing space agencies.
+
+### **⚠️ Usage Terms & Limitations**
+
+- **Non-Commercial**: IRIS and USGS data are provided for research and educational purposes
+- **Real-time Limitations**: Earthquake data may have processing delays; not suitable for emergency response
+- **Quality Notice**: Data quality varies by source and region; always verify critical measurements
+- **Rate Limits**: Respect API rate limits to ensure continued access for all users
+- **Academic Use**: Follow institutional data sharing policies for research applications
+
+### **🔄 Data Freshness**
+
+- **USGS**: Real-time to 5-minute updates
+- **IRIS**: Near real-time to several hours  
+- **GNSS**: Daily to weekly updates
+- **InSAR**: Depends on satellite revisit cycles (6-12 days)
+
 ## License
 
 This project is licensed under the MIT License. See LICENSE file for details.
