@@ -10,13 +10,23 @@
     "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["mcp", "earthquake", "seismic", "iris", "gnss", "model-context-protocol"],
+  "keywords": [
+    "mcp",
+    "earthquake",
+    "seismic",
+    "iris",
+    "gnss",
+    "model-context-protocol"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.3",
+    "@turf/boolean-point-in-polygon": "^7.2.0",
+    "@turf/turf": "^7.2.0",
     "axios": "^1.11.0",
     "dotenv": "^17.2.1",
+    "world-countries": "^5.1.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
