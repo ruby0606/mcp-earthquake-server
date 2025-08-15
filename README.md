@@ -33,7 +33,7 @@ npm start
 3. **Configure your MCP client** (see [Developer Setup Guide](DEVELOPER-SETUP.md))
 
 ## ✨ Key Features
-- 🌍 **Global Coverage** - No geographic restrictions, worldwide monitoring
+- 🌍 **Global Coverage** - Worldwide monitoring
 - 🔄 **Real-time Data** - Live earthquake feeds and rapid analysis
 - 📡 **Multi-source Integration** - IRIS + USGS + GNSS + InSAR
 - 🛠️ **10 Comprehensive Tools** - From basic queries to advanced analysis
