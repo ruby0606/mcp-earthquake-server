@@ -318,16 +318,67 @@ export class GnssDataProvider {
    */
   async monitorDisplacements(options: MonitoringOptions): Promise<DisplacementMeasurement[]> {
     try {
-      // For production use, this would integrate with:
-      // - Nevada Geodetic Laboratory real-time streams
-      // - UNAVCO/EarthScope GNSS data services
-      // - Regional GNSS network APIs with authentication
-      
-      throw new Error("Real-time GNSS displacement monitoring requires authenticated access to UNAVCO/NGL data services. Please contact your institution's GNSS data coordinator for access credentials.");
-      
+      // Get station list for the region or specific stations
+      let stations: GnssStation[];
+      if (options.stationIds && options.stationIds.length > 0) {
+        // If specific station IDs are provided, fetch their metadata
+        stations = (await this.getStations()).filter(s => options.stationIds?.includes(s.stationId));
+      } else {
+        stations = await this.getStations(undefined, options.region);
+      }
+
+      const endDate = new Date();
+      const startDate = new Date(endDate.getTime() - options.timeWindow * 24 * 60 * 60 * 1000);
+
+      const measurements: DisplacementMeasurement[] = [];
+
+      for (const station of stations) {
+        try {
+          const series = await this.getTimeSeries(
+            station.stationId,
+            "up",
+            startDate.toISOString(),
+            endDate.toISOString()
+          );
+
+          if (series.data.length < 2) continue;
+
+          const first = series.data[0];
+          const last = series.data[series.data.length - 1];
+          const displacement = last.value - first.value;
+          const velocity = (displacement / options.timeWindow) * 365; // mm/year
+          const accuracy = (first.error + last.error) / 2;
+          const trending = displacement > 0 ? "increasing" : displacement < 0 ? "decreasing" : "stable";
+
+          measurements.push({
+            stationId: station.stationId,
+            timestamp: last.timestamp,
+            latitude: station.latitude,
+            longitude: station.longitude,
+            displacement: parseFloat(displacement.toFixed(2)),
+            direction: "up",
+            velocity: parseFloat(velocity.toFixed(2)),
+            accuracy: parseFloat(accuracy.toFixed(2)),
+            trending,
+            anomaly: Math.abs(displacement) >= options.threshold,
+            quality: accuracy < 1
+              ? "excellent"
+              : accuracy < 3
+              ? "good"
+              : accuracy < 5
+              ? "fair"
+              : "poor"
+          });
+        } catch {
+          // Skip stations that fail to return data
+          continue;
+        }
+      }
+
+      return measurements;
     } catch (error) {
       console.error("Error monitoring GNSS displacements:", error);
-      throw error;
+      throw new Error(`Failed to monitor GNSS displacements: ${(error as Error).message}`);
     }
   }
 

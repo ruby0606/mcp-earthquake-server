@@ -1,6 +1,6 @@
 # 🌍 MCP Earthquake Monitoring Server - Developer Setup Guide
 
-A comprehensive Model Context Protocol (MCP) server for global earthquake monitoring and seismic data analysis. This server integrates multiple authoritative data sources including IRIS, USGS, GNSS networks, and InSAR satellites to provide worldwide earthquake monitoring capabilities.
+A comprehensive Model Context Protocol (MCP) server for global earthquake monitoring and seismic data analysis. This server integrates multiple authoritative data sources including IRIS, USGS, and GNSS networks to provide worldwide earthquake monitoring capabilities.
 
 ## 🚀 Quick Start
 
@@ -117,7 +117,6 @@ const recentEarthquakes = await client.callTool({
 - **`monitor-gnss-displacement`** - Monitor GPS stations for crustal movements
 
 ### Satellite Analysis
-- **`analyze-insar-deformation`** - Satellite radar ground deformation analysis
 - **`detect-rapid-deformation`** - Detect anomalous ground movements
 - **`generate-interferogram`** - Create SAR interferograms
 
@@ -131,7 +130,6 @@ const recentEarthquakes = await client.callTool({
 - **`iris-catalog`** - IRIS earthquake catalog access
 - **`gnss-stations`** - GNSS station network information
 - **`realtime-earthquakes`** - Live earthquake feeds
-- **`insar-deformation`** - Satellite deformation time series
 - **`usgs-realtime`** - USGS real-time earthquake data
 
 ## 💡 Usage Examples
@@ -215,12 +213,6 @@ This server supports **worldwide earthquake monitoring** with no geographic rest
 - **Update Frequency**: Daily to weekly
 - **Precision**: Millimeter-level displacement detection
 
-### InSAR Satellites
-- **Missions**: Sentinel-1, ALOS-2, TerraSAR-X, COSMO-SkyMed
-- **Coverage**: Global ground deformation via radar interferometry
-- **Update Frequency**: 6-35 day repeat cycles
-- **Resolution**: Meter to sub-centimeter deformation detection
-
 ## 🔒 Rate Limits and Best Practices
 
 ### API Rate Limits
@@ -260,7 +252,6 @@ mcp-earthquake-server/
 │   │   ├── iris-provider.ts  # IRIS seismological data
 │   │   ├── usgs-provider.ts  # USGS earthquake feeds  
 │   │   ├── gnss-provider.ts  # GNSS station networks
-│   │   └── insar-provider.ts # InSAR satellite data
 │   └── analyzers/
 │       └── earthquake-analyzer.ts # Analysis engine
 ├── dist/                     # Compiled JavaScript
@@ -349,9 +340,8 @@ If you use this server in research, please cite:
 
 ### Acknowledgments
 - **IRIS**: Earthquake catalog and waveform data
-- **USGS**: Real-time earthquake feeds and hazard assessments  
+- **USGS**: Real-time earthquake feeds and hazard assessments
 - **UNAVCO/EarthScope**: GNSS crustal deformation measurements
-- **ESA/NASA**: InSAR satellite data and processing algorithms
 
 ## ⚠️ Disclaimer
 

@@ -5,33 +5,24 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { IrisDataProvider } from "./providers/iris-provider.js";
 import { GnssDataProvider, DisplacementMeasurement } from "./providers/gnss-provider.js";
-import { InSARDataProvider } from "./providers/insar-provider.js";
 import { USGSDataProvider } from "./providers/usgs-provider.js";
 import { EarthquakeAnalyzer } from "./analyzers/earthquake-analyzer.js";
-import { 
+import {
   SYSTEM_CONFIG,
   MAGNITUDE_THRESHOLDS,
   ANALYSIS_DEFAULTS,
   GNSS_THRESHOLDS,
-  INSAR_VELOCITY,
-  INSAR_QUALITY,
-  SAR_MISSIONS,
-  USGS_MAGNITUDE_FEEDS,
-  USGS_TIMEFRAMES,
   VALIDATION,
-  REGIONAL_CENTERS,
-  GEOGRAPHIC_LIMITS,
-  INSAR_COHERENCE
+  GEOGRAPHIC_LIMITS
 } from "./config/scientific-constants.js";
 
 /**
- * MCP Server for IRIS Seismological, GNSS, and InSAR Earthquake Data
+ * MCP Server for IRIS Seismological, GNSS, and USGS Earthquake Data
  * 
  * DATA ATTRIBUTION NOTICE:
  * - IRIS data: Funded by NSF/SAGE (EAR-1851048)
  * - USGS data: U.S. Geological Survey Earthquake Hazards Program  
  * - GNSS data: UNAVCO/EarthScope and global network providers
- * - InSAR data: ESA Sentinel-1, JAXA ALOS-2, DLR TerraSAR-X missions
  * 
  * USAGE: Research and educational purposes only. Not for emergency response.
  * See README.md for complete attribution requirements and usage terms.
@@ -39,7 +30,6 @@ import {
  * This server provides access to:
  * - IRIS earthquake catalog and waveform data
  * - GNSS/GPS station displacement measurements
- * - InSAR ground deformation measurements
  * - Real-time seismic monitoring
  * - Earthquake analysis and predictions
  */
@@ -51,14 +41,8 @@ const server = new McpServer({
 
 const irisProvider = new IrisDataProvider();
 const gnssProvider = new GnssDataProvider();
-const insarProvider = new InSARDataProvider();
 const usgsProvider = new USGSDataProvider();
 const analyzer = new EarthquakeAnalyzer();
-
-// Helper function to get regional coordinates
-function getRegionalCoordinates(region: string): { lat: number; lon: number } {
-  return REGIONAL_CENTERS[region as keyof typeof REGIONAL_CENTERS] || REGIONAL_CENTERS.global;
-}
 
 // === RESOURCES ===
 
@@ -153,88 +137,6 @@ server.registerResource(
   }
 );
 
-// InSAR Deformation Data
-server.registerResource(
-  "insar-deformation",
-  "insar://deformation/{region}?starttime={start}&endtime={end}&method={method}",
-  {
-    title: "InSAR Ground Deformation",
-    description: "Satellite radar interferometry ground deformation measurements",
-    mimeType: "application/json"
-  },
-  async (uri) => {
-    const url = new URL(uri.href);
-    const params = new URLSearchParams(url.search);
-    const region = url.pathname.split('/')[2];
-    const start = params.get('starttime') || new Date(Date.now() - ANALYSIS_DEFAULTS.EXTENDED_TIME_WINDOW * 24 * 60 * 60 * 1000).toISOString();
-    const end = params.get('endtime') || new Date().toISOString();
-    const method = params.get('method') || "SBAS";
-    
-    // Get regional coordinates
-    const coords = getRegionalCoordinates(region);
-    
-    const timeSeries = await insarProvider.getDeformationTimeSeries({
-      location: { latitude: coords.lat, longitude: coords.lon },
-      radius: ANALYSIS_DEFAULTS.STANDARD_RADIUS,
-      timeWindow: Math.ceil((new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60 * 60 * 24)),
-      velocityThreshold: GNSS_THRESHOLDS.SIGNIFICANT_DISPLACEMENT,
-      coherenceThreshold: INSAR_COHERENCE.STANDARD_QUALITY,
-      method: method as "SBAS" | "PSI" | "StaMPS"
-    });
-    
-    return {
-      contents: [{
-        uri: uri.href,
-        text: JSON.stringify(timeSeries, null, 2),
-        mimeType: "application/json"
-      }]
-    };
-  }
-);
-
-// InSAR Products Catalog
-server.registerResource(
-  "insar-products",
-  "insar://products/{mission}?region={region}&starttime={start}&endtime={end}",
-  {
-    title: "InSAR Product Catalog",
-    description: "Available satellite radar products for interferometric analysis",
-    mimeType: "application/json"
-  },
-  async (uri) => {
-    const url = new URL(uri.href);
-    const params = new URLSearchParams(url.search);
-    const mission = url.pathname.split('/')[2];
-    const region = params.get('region');
-    const start = params.get('starttime') || new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-    const end = params.get('endtime') || new Date().toISOString();
-    
-    let boundingBox;
-    if (region) {
-      const coords = getRegionalCoordinates(region);
-      boundingBox = {
-        north: coords.lat + 2,
-        south: coords.lat - 2,
-        east: coords.lon + 2,
-        west: coords.lon - 2
-      };
-    }
-    
-    const products = await insarProvider.searchProducts({
-      region: boundingBox,
-      dateRange: { start, end },
-      mission: mission !== "all" ? mission : undefined
-    });
-    
-    return {
-      contents: [{
-        uri: uri.href,
-        text: JSON.stringify(products, null, 2),
-        mimeType: "application/json"
-      }]
-    };
-  }
-);
 
 // USGS Real-time Earthquakes Resource
 server.registerResource(
@@ -472,270 +374,6 @@ ${alerts.map((a: DisplacementMeasurement) =>
         content: [{
           type: "text",
           text: `Error monitoring GNSS displacements: ${(error as Error).message}`
-        }],
-        isError: true
-      };
-    }
-  }
-);
-
-// Analyze InSAR Deformation
-server.registerTool(
-  "analyze-insar-deformation",
-  {
-    title: "Analyze InSAR Ground Deformation",
-    description: "Analyze satellite radar interferometry data for ground deformation patterns",
-    inputSchema: {
-      latitude: z.number().min(GEOGRAPHIC_LIMITS.LATITUDE_MIN).max(GEOGRAPHIC_LIMITS.LATITUDE_MAX).describe("Latitude of the analysis center"),
-      longitude: z.number().min(GEOGRAPHIC_LIMITS.LONGITUDE_MIN).max(GEOGRAPHIC_LIMITS.LONGITUDE_MAX).describe("Longitude of the analysis center"),
-      radius: z.number().min(ANALYSIS_DEFAULTS.MIN_ANALYSIS_RADIUS).max(5000).default(50).describe("Analysis radius in kilometers"),
-      timeWindow: z.number().min(ANALYSIS_DEFAULTS.MIN_ANALYSIS_RADIUS).max(3650).default(ANALYSIS_DEFAULTS.EXTENDED_TIME_WINDOW).describe("Time window in days"),
-      method: z.enum(["SBAS", "PSI", "StaMPS"]).default("SBAS").describe("InSAR processing method"),
-      velocityThreshold: z.number().min(INSAR_VELOCITY.MIN_VELOCITY).max(INSAR_VELOCITY.MAX_VELOCITY).default(GNSS_THRESHOLDS.SIGNIFICANT_DISPLACEMENT).describe("Velocity threshold in mm/year")
-    }
-  },
-  async ({ latitude, longitude, radius, timeWindow, method, velocityThreshold }) => {
-    try {
-      const timeSeries = await insarProvider.getDeformationTimeSeries({
-        location: { latitude, longitude },
-        radius,
-        timeWindow,
-        velocityThreshold,
-        coherenceThreshold: 0.6,
-        method
-      });
-
-      return {
-        content: [{
-          type: "text",
-          text: `## InSAR Deformation Analysis
-
-**Location:** ${latitude.toFixed(4)}°${latitude >= 0 ? 'N' : 'S'}, ${Math.abs(longitude).toFixed(4)}°${longitude >= 0 ? 'E' : 'W'}
-**Analysis Period:** ${timeSeries.timeRange.start} to ${timeSeries.timeRange.end}
-**Processing Method:** ${method}
-**Data Points:** ${timeSeries.measurements.length}
-
-### Deformation Summary
-- **Linear Velocity:** ${timeSeries.trend.linearVelocity.toFixed(2)} mm/year
-- **Acceleration:** ${timeSeries.trend.acceleration.toFixed(3)} mm/year²
-- **Seasonal Amplitude:** ${timeSeries.trend.seasonalAmplitude.toFixed(2)} mm
-- **Confidence:** ${(timeSeries.trend.confidence * 100).toFixed(1)}%
-
-### Data Quality Assessment
-- **Temporal Coherence:** ${(timeSeries.quality.temporalCoherence * 100).toFixed(1)}%
-- **Spatial Consistency:** ${(timeSeries.quality.spatialConsistency * 100).toFixed(1)}%
-- **Atmospheric Artifacts:** ${timeSeries.quality.atmosphericArtifacts}
-- **Overall Quality:** ${timeSeries.quality.overallQuality}
-
-### Recent Measurements
-${timeSeries.measurements.slice(-5).map(m => 
-  `- **${m.date}:** ${m.displacement.toFixed(1)}mm (vel: ${m.velocity.toFixed(1)} mm/yr, coherence: ${(m.coherence * 100).toFixed(0)}%)`
-).join('\n')}
-
-### Interpretation
-${timeSeries.trend.linearVelocity > 5 ? "⚠️ Significant uplift detected - possible magmatic or tectonic activity" : 
-  timeSeries.trend.linearVelocity < -5 ? "⚠️ Significant subsidence detected - possible groundwater extraction or tectonic settling" :
-  "✅ Stable ground conditions with normal seasonal variations"}
-
-${Math.abs(timeSeries.trend.acceleration) > 0.1 ? "📈 Acceleration in deformation rate detected - monitoring recommended" : ""}
-
-### Data Reliability
-Quality: **${timeSeries.quality.overallQuality.toUpperCase()}**
-- Measurements with coherence > ${INSAR_COHERENCE.HIGH_QUALITY}: ${Math.round(timeSeries.measurements.filter(m => m.coherence > INSAR_COHERENCE.HIGH_QUALITY).length / timeSeries.measurements.length * 100)}%
-- Atmospheric correction applied: ${Math.round(timeSeries.measurements.filter(m => m.atmosphericCorrection).length / timeSeries.measurements.length * 100)}%`
-        }]
-      };
-    } catch (error) {
-      return {
-        content: [{
-          type: "text",
-          text: `Error analyzing InSAR deformation: ${(error as Error).message}`
-        }],
-        isError: true
-      };
-    }
-  }
-);
-
-// Detect Rapid Deformation
-server.registerTool(
-  "detect-rapid-deformation",
-  {
-    title: "Detect Rapid Ground Deformation",
-    description: "Detect anomalous ground deformation that might indicate seismic or volcanic activity",
-    inputSchema: {
-      north: z.number().min(GEOGRAPHIC_LIMITS.LATITUDE_MIN).max(GEOGRAPHIC_LIMITS.LATITUDE_MAX).describe("Northern boundary latitude"),
-      south: z.number().min(GEOGRAPHIC_LIMITS.LATITUDE_MIN).max(GEOGRAPHIC_LIMITS.LATITUDE_MAX).describe("Southern boundary latitude"),
-      east: z.number().min(GEOGRAPHIC_LIMITS.LONGITUDE_MIN).max(GEOGRAPHIC_LIMITS.LONGITUDE_MAX).describe("Eastern boundary longitude"),
-      west: z.number().min(GEOGRAPHIC_LIMITS.LONGITUDE_MIN).max(GEOGRAPHIC_LIMITS.LONGITUDE_MAX).describe("Western boundary longitude"),
-      velocityThreshold: z.number().min(INSAR_VELOCITY.MIN_VELOCITY).max(INSAR_VELOCITY.MAX_VELOCITY).default(GNSS_THRESHOLDS.RAPID_DEFORMATION).describe("Velocity threshold for detection in mm/year")
-    }
-  },
-  async ({ north, south, east, west, velocityThreshold }) => {
-    // Validate boundaries
-    if (north <= south) {
-      return {
-        content: [{
-          type: "text",
-          text: "Error: Northern boundary must be greater than southern boundary"
-        }],
-        isError: true
-      };
-    }
-    
-    if (Math.abs(east - west) < 0.001) {
-      return {
-        content: [{
-          type: "text",
-          text: "Error: Eastern and western boundaries must be different"
-        }],
-        isError: true
-      };
-    }
-    
-    try {
-      const detections = await insarProvider.detectRapidDeformation(
-        { north, south, east, west },
-        velocityThreshold
-      );
-
-      const criticalDetections = detections.filter(d => d.significance === "critical");
-      const highDetections = detections.filter(d => d.significance === "high");
-
-      return {
-        content: [{
-          type: "text",
-          text: `## Rapid Deformation Detection
-
-**Search Area:** ${north.toFixed(3)}°N to ${south.toFixed(3)}°N, ${east.toFixed(3)}°E to ${west.toFixed(3)}°E
-**Velocity Threshold:** ${velocityThreshold} mm/year
-**Detections:** ${detections.length} anomalous areas found
-
-### Alert Summary
-- 🚨 **Critical:** ${criticalDetections.length} locations
-- ⚠️ **High:** ${highDetections.length} locations  
-- 📊 **Medium/Low:** ${detections.length - criticalDetections.length - highDetections.length} locations
-
-${criticalDetections.length > 0 ? `
-### 🚨 Critical Deformation Alerts
-${criticalDetections.map(d => 
-  `- **Location:** ${d.location.latitude.toFixed(4)}°N, ${d.location.longitude.toFixed(4)}°E
-  - **Velocity:** ${d.velocity.toFixed(1)} mm/year (${d.direction})
-  - **Type:** ${d.anomalyType}
-  - **Confidence:** ${(d.confidence * 100).toFixed(0)}%
-  - **Last Update:** ${d.lastUpdate.split('T')[0]}`
-).join('\n\n')}
-` : ''}
-
-${highDetections.length > 0 ? `
-### ⚠️ High Significance Detections
-${highDetections.slice(0, 3).map(d => 
-  `- **${d.location.latitude.toFixed(4)}°N, ${d.location.longitude.toFixed(4)}°E:** ${d.velocity.toFixed(1)} mm/yr ${d.direction} (${d.anomalyType})`
-).join('\n')}
-${highDetections.length > 3 ? `\n... and ${highDetections.length - 3} more high-significance detections` : ''}
-` : ''}
-
-### Analysis Summary
-${detections.length === 0 ? "✅ No significant deformation anomalies detected in the specified region." :
-  criticalDetections.length > 0 ? "🚨 Critical deformation rates detected - immediate investigation recommended" :
-  highDetections.length > 0 ? "⚠️ Elevated deformation rates observed - continued monitoring advised" :
-  "📊 Minor deformation variations within normal ranges"}
-
-### Recommendations
-${criticalDetections.length > 0 ? "- Immediate field verification of critical deformation areas\n- Enhanced monitoring frequency\n- Coordination with local seismic networks" :
-  highDetections.length > 0 ? "- Increased monitoring of high-significance areas\n- Cross-reference with seismic and GNSS data\n- Prepare for potential escalation" :
-  "- Continue routine InSAR monitoring\n- Maintain baseline deformation measurements"}
-
-**Note:** InSAR measurements represent line-of-sight deformation. Ground-truth validation recommended for critical findings.`
-        }]
-      };
-    } catch (error) {
-      return {
-        content: [{
-          type: "text",
-          text: `Error detecting rapid deformation: ${(error as Error).message}`
-        }],
-        isError: true
-      };
-    }
-  }
-);
-
-// Generate Interferogram
-server.registerTool(
-  "generate-interferogram",
-  {
-    title: "Generate InSAR Interferogram",
-    description: "Create interferogram from two SAR acquisitions to measure ground deformation",
-    inputSchema: {
-      primaryDate: z.string().describe("Primary SAR acquisition date (YYYY-MM-DD)"),
-      secondaryDate: z.string().describe("Secondary SAR acquisition date (YYYY-MM-DD)"),
-      region: z.string().describe("Region name (e.g., 'california', 'japan', 'chile')"),
-      mission: z.string().default("Sentinel-1A").describe("SAR mission name")
-    }
-  },
-  async ({ primaryDate, secondaryDate, region, mission }) => {
-    try {
-      // Generate realistic product IDs based on mission naming conventions
-      const primaryProductId = `${mission.replace("-", "")}_${primaryDate}_001`;
-      const secondaryProductId = `${mission.replace("-", "")}_${secondaryDate}_002`;
-      
-      const interferogram = await insarProvider.generateInterferogram(
-        primaryProductId,
-        secondaryProductId
-      );
-
-      return {
-        content: [{
-          type: "text",
-          text: `## InSAR Interferogram Analysis
-
-**Interferogram ID:** ${interferogram.interferogramId}
-**Date Pair:** ${interferogram.primaryDate} → ${interferogram.secondaryDate}
-**Temporal Baseline:** ${interferogram.temporalBaseline} days
-**Perpendicular Baseline:** ${interferogram.perpendicularBaseline} meters
-
-### Interferometric Quality
-- **Coherence:** ${(interferogram.coherence * 100).toFixed(1)}% 
-- **Unwrapping Quality:** ${interferogram.unwrappingQuality}
-- **Coverage:** ${interferogram.coverage.coveragePercentage}% (${interferogram.coverage.validPixels.toLocaleString()} pixels)
-
-### Deformation Measurements
-- **Maximum Deformation:** ${interferogram.deformationData.maxDeformation.toFixed(1)} mm
-- **Minimum Deformation:** ${interferogram.deformationData.minDeformation.toFixed(1)} mm
-- **Average Deformation:** ${interferogram.deformationData.averageDeformation.toFixed(1)} mm
-- **Standard Deviation:** ${interferogram.deformationData.standardDeviation.toFixed(1)} mm
-
-### Processing Details
-- **Method:** ${interferogram.processing.method}
-- **Processor:** ${interferogram.processing.processor} v${interferogram.processing.version}
-- **Reference Point:** ${interferogram.processing.referencePoint.latitude.toFixed(4)}°N, ${interferogram.processing.referencePoint.longitude.toFixed(4)}°E
-
-### Quality Assessment
-${interferogram.coherence > 0.8 ? "✅ Excellent interferometric quality - highly reliable measurements" :
-  interferogram.coherence > 0.6 ? "✅ Good interferometric quality - reliable for most applications" :
-  interferogram.coherence > 0.4 ? "⚠️ Fair interferometric quality - use with caution" :
-  "❌ Poor interferometric quality - results may be unreliable"}
-
-### Deformation Analysis
-${Math.abs(interferogram.deformationData.maxDeformation) > 50 ? "🚨 Significant deformation detected (>50mm) - possible seismic or volcanic activity" :
-  Math.abs(interferogram.deformationData.maxDeformation) > 20 ? "⚠️ Moderate deformation observed (20-50mm) - worth investigating" :
-  Math.abs(interferogram.deformationData.maxDeformation) > 5 ? "📊 Minor deformation detected (5-20mm) - within normal range" :
-  "✅ Minimal deformation - stable ground conditions"}
-
-### Recommendations
-${interferogram.coherence < 0.5 ? "- Consider alternative date pairs with shorter temporal baselines\n- Check for atmospheric conditions during acquisitions" :
-  Math.abs(interferogram.deformationData.maxDeformation) > 20 ? "- Validate results with ground-truth measurements\n- Check for correlation with seismic events\n- Consider time series analysis" :
-  "- Results suitable for baseline monitoring\n- Consider for time series analysis"}
-
-**Note:** Measurements represent line-of-sight displacement. Decomposition into vertical and horizontal components requires additional processing.`
-        }]
-      };
-    } catch (error) {
-      return {
-        content: [{
-          type: "text",
-          text: `Error generating interferogram: ${(error as Error).message}`
         }],
         isError: true
       };
