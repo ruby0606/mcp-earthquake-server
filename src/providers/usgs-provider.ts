@@ -282,7 +282,44 @@ export class USGSDataProvider {
    * Note: This is a placeholder implementation - USGS Design Maps API requires specific implementation
    */
   async getSeismicHazard(latitude: number, longitude: number): Promise<USGSHazardData> {
-    // For production use, implement USGS Design Maps API integration
-    throw new Error("Seismic hazard assessment requires USGS Design Maps API integration. This feature is not yet implemented in this production version. Please use the USGS Earthquake Hazards Program Design Maps tools at https://earthquake.usgs.gov/hazards/designmaps/");
+    try {
+      const params = new URLSearchParams({
+        latitude: latitude.toString(),
+        longitude: longitude.toString(),
+        riskCategory: "II",
+        siteClass: "D",
+        edition: "ASCE7-16",
+        format: "json"
+      });
+
+      const url = `${this.hazardUrl}/asce7-16.json?${params.toString()}`;
+      const response = await axios.get(url, {
+        headers: { "User-Agent": "MCP-Earthquake-Server/1.0" },
+        timeout: 30000
+      });
+
+      const data = response.data?.response?.data || {};
+      return {
+        location: { latitude, longitude },
+        hazardValues: [
+          {
+            pga: parseFloat(data.pga) || 0,
+            sa0p2: parseFloat(data.sds ?? data.ss) || 0,
+            sa1p0: parseFloat(data.sd1 ?? data.s1) || 0,
+            returnPeriod: 475,
+            probability: 0.1
+          }
+        ],
+        vs30: parseFloat(data.vs30) || 760,
+        metadata: {
+          model: response.data?.response?.metadata?.model || "USGS Design Maps",
+          edition: response.data?.response?.edition || "ASCE7-16",
+          region: response.data?.response?.region || "US"
+        }
+      };
+    } catch (error) {
+      console.error("Error fetching USGS seismic hazard:", error);
+      throw new Error(`Failed to fetch seismic hazard data: ${(error as Error).message}`);
+    }
   }
 }

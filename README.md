@@ -1,6 +1,6 @@
 # 🌍 Comprehensive Earthquake Monitoring MCP Server
 
-A complete Model Context Protocol (MCP) server that provides access to multiple earthquake monitoring data sources including IRIS seismological data, GNSS/GPS crustal deformation measurements, InSAR satellite radar interferometry, and USGS earthquake feeds for comprehensive earthquake monitoring and analysis.
+A complete Model Context Protocol (MCP) server that provides access to multiple earthquake monitoring data sources including IRIS seismological data, GNSS/GPS crustal deformation measurements, and USGS earthquake feeds for comprehensive earthquake monitoring and analysis.
 
 ## 📋 Quick Links for Sharing
 
@@ -35,7 +35,7 @@ npm start
 ## ✨ Key Features
 - 🌍 **Global Coverage** - Worldwide monitoring
 - 🔄 **Real-time Data** - Live earthquake feeds and rapid analysis
-- 📡 **Multi-source Integration** - IRIS + USGS + GNSS + InSAR
+- 📡 **Multi-source Integration** - IRIS + USGS + GNSS
 - 🛠️ **10 Comprehensive Tools** - From basic queries to advanced analysis
 - 🔒 **Production Ready** - Fully tested, validated, and documented
 
@@ -44,7 +44,6 @@ npm start
 ### 🌍 Data Sources
 - **IRIS (Incorporated Research Institutions for Seismology)** - Earthquake catalogs, waveform data, and station information
 - **GNSS Networks** - GPS/GNSS station displacement measurements from UNAVCO, Nevada Geodetic Laboratory, and other providers
-- **InSAR Satellites** - Ground deformation measurements from Sentinel-1, ALOS-2, TerraSAR-X and other SAR missions
 - **USGS Earthquake Hazards Program** - Real-time earthquake feeds, ShakeMap data, and seismic hazard assessments
 - **Real-time Monitoring** - Latest earthquake activity, crustal deformation, and satellite observations with multi-source validation
 
@@ -52,8 +51,6 @@ npm start
 - `iris-catalog` - Access earthquake events from IRIS database
 - `gnss-stations` - GPS/GNSS station network information
 - `realtime-earthquakes` - Latest earthquake activity feed
-- `insar-deformation` - Satellite radar deformation time series
-- `insar-products` - Available SAR product catalogs
 - `usgs-realtime` - USGS real-time earthquake feeds with multiple magnitude filters
 - `usgs-shakemap` - ShakeMap intensity and ground motion data for specific events
 
@@ -64,11 +61,6 @@ npm start
 
 **Geodetic Monitoring:**
 - **monitor-gnss-displacement** - Monitor GPS stations for unusual crustal movements
-
-**Satellite Radar Analysis:**
-- **analyze-insar-deformation** - Analyze satellite radar interferometry data for ground deformation
-- **detect-rapid-deformation** - Detect anomalous ground deformation patterns
-- **generate-interferogram** - Create interferograms from SAR acquisitions
 
 **USGS Data Integration:**
 - **get-usgs-earthquakes** - Retrieve recent earthquakes from USGS real-time feeds
@@ -294,7 +286,6 @@ Contributions are welcome! Areas for improvement:
 
 1. **Additional Data Sources**
    - International seismic networks
-   - InSAR displacement data
    - Volcano monitoring integration
 
 2. **Enhanced Analysis**
@@ -322,8 +313,6 @@ When using data from this server in research or publications, please include app
 **GNSS Data:**
 > GNSS data provided by UNAVCO/EarthScope, Nevada Geodetic Laboratory, and contributing global networks. Please acknowledge the specific network operators in your research.
 
-**InSAR Data:**
-> SAR data courtesy of ESA Sentinel-1, JAXA ALOS-2, DLR TerraSAR-X missions and contributing space agencies.
 
 ### **⚠️ Usage Terms & Limitations**
 
@@ -338,7 +327,6 @@ When using data from this server in research or publications, please include app
 - **USGS**: Real-time to 5-minute updates
 - **IRIS**: Near real-time to several hours  
 - **GNSS**: Daily to weekly updates
-- **InSAR**: Depends on satellite revisit cycles (6-12 days)
 
 ## License
 

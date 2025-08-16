@@ -88,37 +88,8 @@ async function testGlobalEarthquakeMonitoring() {
     });
     console.log('✅ Turkey GNSS monitoring completed');
 
-    // Test 5: InSAR deformation analysis in Indonesia
-    console.log('\n🇮🇩 Test 5: InSAR deformation analysis in Indonesia...');
-    const indonesiaInSAR = await client.callTool({
-      name: "analyze-insar-deformation",
-      arguments: {
-        latitude: -6.2088,
-        longitude: 106.8456,
-        radius: 100,
-        timeWindow: 365,
-        method: "SBAS",
-        velocityThreshold: 10
-      }
-    });
-    console.log('✅ Indonesia InSAR analysis completed');
-
-    // Test 6: Detect rapid deformation globally
-    console.log('\n🌐 Test 6: Detecting rapid deformation globally...');
-    const globalDeformation = await client.callTool({
-      name: "detect-rapid-deformation",
-      arguments: {
-        north: 60,
-        south: -60,
-        east: 180,
-        west: -180,
-        velocityThreshold: 15
-      }
-    });
-    console.log('✅ Global deformation detection completed');
-
-    // Test 7: Get seismic hazard assessment for New Zealand
-    console.log('\n🇳🇿 Test 7: Seismic hazard assessment for New Zealand...');
+    // Test 5: Get seismic hazard assessment for New Zealand
+    console.log('\n🇳🇿 Test 5: Seismic hazard assessment for New Zealand...');
     const nzHazard = await client.callTool({
       name: "get-seismic-hazard",
       arguments: {

@@ -237,20 +237,54 @@ export class IrisDataProvider {
    */
   async getWaveformData(options: WaveformOptions): Promise<WaveformData> {
     try {
-      // First get the waveform metadata
+      const url = `${this.irisWs}/timeseries/1/query`;
       const params = new URLSearchParams({
+        net: options.network,
+        sta: options.station,
+        cha: options.channel,
+        start: options.startTime,
+        end: options.endTime,
+        output: "ascii"
+      });
+
+      const response = await axios.get(`${url}?${params.toString()}`, {
+        responseType: "text",
+        headers: { "User-Agent": "MCP-Earthquake-Server/1.0" },
+        timeout: 30000
+      });
+
+      const lines = response.data
+        .split("\n")
+        .map((l: string) => l.trim())
+        .filter((l: string) => l);
+
+      const sampleRateLine = lines.find((l: string) => l.toLowerCase().startsWith("samplerate"));
+      const sampleRate = sampleRateLine ? parseFloat(sampleRateLine.split("=")[1]) : 0;
+
+      const dataStartIndex = lines.findIndex((l: string) => /^[-0-9.\s]+$/.test(l));
+      const sampleLines = dataStartIndex >= 0 ? lines.slice(dataStartIndex) : [];
+      const samples = sampleLines
+        .flatMap((l: string) => l.split(/\s+/).map((n: string) => parseFloat(n)))
+        .filter((n: number) => !isNaN(n));
+
+      const duration = (new Date(options.endTime).getTime() - new Date(options.startTime).getTime()) / 1000;
+      const peakAmplitude = Math.max(...samples.map((s: number) => Math.abs(s)));
+      const rmsAmplitude = Math.sqrt(samples.reduce((sum: number, v: number) => sum + v * v, 0) / (samples.length || 1));
+
+      return {
+        eventId: options.eventId,
         network: options.network,
         station: options.station,
         channel: options.channel,
-        starttime: options.startTime,
-        endtime: options.endTime,
-        quality: options.quality || "B"
-      });
-
-      // Production waveform data requires fetching binary miniSEED data and processing
-      console.log(`Production waveform fetching requires: ${this.fdsnDataSelect}/query?${params.toString()}`);
-
-      throw new Error("Production waveform data retrieval requires miniSEED data processing capabilities and specialized seismic data libraries like ObsPy. Please integrate with IRIS web services directly for waveform data access.");
+        startTime: options.startTime,
+        endTime: options.endTime,
+        sampleRate,
+        samples,
+        duration,
+        peakAmplitude,
+        rmsAmplitude,
+        quality: "raw"
+      };
     } catch (error) {
       console.error("Error fetching IRIS waveform data:", error);
       throw new Error(`Failed to fetch waveform data: ${(error as Error).message}`);

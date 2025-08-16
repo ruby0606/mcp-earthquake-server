@@ -16,7 +16,7 @@ A specialized tool for seismologists, geophysicists, and earthquake researchers 
 ## 🎯 For Seismologists and Researchers
 
 ### What This Tool Provides
-- **Multi-source Integration**: IRIS + USGS + GNSS + InSAR in one interface
+- **Multi-source Integration**: IRIS + USGS + GNSS data in one interface
 - **Global Coverage**: No geographic restrictions - monitor worldwide
 - **Real-time Data**: Live earthquake feeds and rapid analysis capabilities
 - **Research-grade Quality**: Validated algorithms and authoritative data sources
@@ -52,21 +52,6 @@ const saDeformation = await client.callTool({
 });
 ```
 
-#### 🛰️ InSAR Ground Deformation Analysis
-```javascript
-// Detect volcanic/seismic deformation in the Cascades
-const cascadesInSAR = await client.callTool({
-  name: "analyze-insar-deformation", 
-  arguments: {
-    latitude: 46.2,
-    longitude: -121.7,
-    radius: 50,
-    timeWindow: 730,    // 2 years
-    method: "SBAS",
-    velocityThreshold: 5.0
-  }
-});
-```
 
 #### ⚡ Rapid Response Analysis
 ```javascript
@@ -89,7 +74,6 @@ const shakeMap = await client.callTool({
 
 #### Multi-parameter Correlation
 - **Seismic + GNSS**: Correlate earthquakes with crustal deformation
-- **InSAR + Seismic**: Ground deformation and earthquake relationships  
 - **Temporal Analysis**: Pre-seismic, co-seismic, post-seismic patterns
 - **Cross-validation**: Multiple data source verification
 
@@ -119,16 +103,9 @@ const shakeMap = await client.callTool({
 - **Regional Networks**: PBO, GEONET, RING, COCONet integration
 - **Anomaly Detection**: Automated unusual movement identification
 
-#### InSAR Satellites
-- **Centimeter Resolution**: Precise ground deformation mapping
-- **Wide Area Coverage**: Regional to continental scale monitoring
-- **Historical Analysis**: Multi-year deformation time series
-- **Coherence Assessment**: Data reliability quantification
-
 ## 📚 Research Use Cases
 
 ### 🌋 Volcanic Monitoring
-- Pre-eruptive deformation detection via InSAR
 - Volcanic earthquake swarm analysis
 - Multi-parameter eruption forecasting
 - Hazard zone definition and evacuation planning
@@ -195,14 +172,8 @@ const comprehensiveStudy = async (region) => {
     arguments: { region: region.name, timeWindow: 30 }
   });
   
-  // 3. Analyze ground deformation
-  const insar = await client.callTool({
-    name: "analyze-insar-deformation",
-    arguments: { ...region.center, timeWindow: 730 }
-  });
-  
-  // 4. Cross-correlate results
-  return { baseline, gnss, insar, correlation: analyzeCorrelation(baseline, gnss, insar) };
+  // 3. Cross-correlate results
+  return { baseline, gnss, correlation: analyzeCorrelation(baseline, gnss) };
 };
 ```
 
