@@ -15,7 +15,7 @@ A complete Model Context Protocol (MCP) server that provides access to multiple 
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 1. **Clone and install:**
 ```bash
@@ -322,7 +322,7 @@ When using data from this server in research or publications, please include app
 - **Rate Limits**: Respect API rate limits to ensure continued access for all users
 - **Academic Use**: Follow institutional data sharing policies for research applications
 
-### **🔄 Data Freshness**
+### ** Data Freshness**
 
 - **USGS**: Real-time to 5-minute updates
 - **IRIS**: Near real-time to several hours  
