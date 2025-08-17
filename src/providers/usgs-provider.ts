@@ -399,15 +399,16 @@ export class USGSDataProvider {
     } = {}
   ): Promise<USGSHazardData> {
     try {
-      const { riskCategory = "II", siteClass, vs30, edition = "ASCE7-16" } = options;
+      const { riskCategory = "II", siteClass = "C", vs30, edition = "ASCE7-16" } = options;
 
       const params = new URLSearchParams({
         latitude: latitude.toString(),
         longitude: longitude.toString(),
         riskCategory,
+        siteClass,
+        title: "MCP-Earthquake-Server",
         format: "json"
       });
-      if (siteClass) params.append("siteClass", siteClass);
       if (vs30 !== undefined) params.append("vs30", vs30.toString());
 
       const url = `${this.hazardUrl}/${edition.toLowerCase()}.json?${params.toString()}`;
