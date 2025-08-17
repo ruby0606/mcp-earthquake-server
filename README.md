@@ -66,7 +66,9 @@ npm start
 - **get-usgs-earthquakes** - Retrieve recent earthquakes from USGS real-time feeds
 - **search-usgs-earthquakes** - Search USGS earthquake database with custom parameters
 - **get-usgs-shakemap** - Retrieve ShakeMap data for specific earthquakes
-- **get-seismic-hazard** - Get probabilistic seismic hazard assessments
+- **get-seismic-hazard** - Get probabilistic seismic hazard assessments (requires latitude, longitude, and a valid site class or VS30 value; coverage limited to USGS Design Maps regions)
+
+> **Note:** The hazard service returns explicit errors for invalid site classes or unsupported locations.
 
 ###  Prompts
 - **earthquake-risk-assessment** - Generate comprehensive risk assessments

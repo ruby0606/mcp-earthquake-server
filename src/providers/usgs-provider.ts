@@ -86,18 +86,21 @@ export interface USGSHazardData {
     latitude: number;
     longitude: number;
   };
-  hazardValues: {
-    pga: number; // Peak Ground Acceleration (g)
-    sa0p2: number; // Spectral Acceleration at 0.2 seconds
-    sa1p0: number; // Spectral Acceleration at 1.0 seconds
-    returnPeriod: number; // years (e.g., 475, 2475)
-    probability: number; // probability of exceedance
-  }[];
-  vs30: number; // Site class (m/s)
+  pga?: number; // Peak Ground Acceleration (g)
+  ss?: number; // Spectral acceleration at 0.2s (MCE)
+  s1?: number; // Spectral acceleration at 1.0s (MCE)
+  sds?: number; // Design spectral acceleration at 0.2s
+  sd1?: number; // Design spectral acceleration at 1.0s
+  fa?: number; // Site coefficient for short periods
+  fv?: number; // Site coefficient for 1s periods
+  tl?: number; // Transition period
+  vs30?: number; // Time-averaged shear-wave velocity
+  siteClass?: string; // Site class (A-F)
+  riskCategory?: string; // Risk category (I-IV)
   metadata: {
-    model: string;
-    edition: string;
-    region: string;
+    model?: string;
+    edition?: string;
+    region?: string;
   };
 }
 
@@ -375,47 +378,91 @@ export class USGSDataProvider {
   }
 
   /**
-   * Get seismic hazard assessment for a location
-   * Note: This is a placeholder implementation - USGS Design Maps API requires specific implementation
+   * Retrieve probabilistic seismic hazard values from the USGS Design Maps API.
+   *
+   * The API requires latitude/longitude and either a `siteClass` (A-F) or
+   * `vs30` value describing the site's shear-wave velocity. `riskCategory`
+   * defaults to II and the design-map edition defaults to ASCE7-16.
+   *
+   * NOTE: The Design Maps service only covers locations within the United
+   * States and its territories. Errors such as invalid site classes or
+   * unsupported locations are surfaced to callers.
    */
-  async getSeismicHazard(latitude: number, longitude: number): Promise<USGSHazardData> {
+  async getSeismicHazard(
+    latitude: number,
+    longitude: number,
+    options: {
+      riskCategory?: string;
+      siteClass?: string;
+      vs30?: number;
+      edition?: string;
+    } = {}
+  ): Promise<USGSHazardData> {
     try {
+      const { riskCategory = "II", siteClass, vs30, edition = "ASCE7-16" } = options;
+
       const params = new URLSearchParams({
         latitude: latitude.toString(),
         longitude: longitude.toString(),
-        riskCategory: "II",
-        siteClass: "D",
-        edition: "ASCE7-16",
+        riskCategory,
         format: "json"
       });
+      if (siteClass) params.append("siteClass", siteClass);
+      if (vs30 !== undefined) params.append("vs30", vs30.toString());
 
-      const url = `${this.hazardUrl}/asce7-16.json?${params.toString()}`;
+      const url = `${this.hazardUrl}/${edition.toLowerCase()}.json?${params.toString()}`;
       const response = await axios.get(url, {
         headers: { "User-Agent": "MCP-Earthquake-Server/1.0" },
         timeout: 30000
       });
 
-      const data = response.data?.response?.data || {};
+      const data = response.data?.response?.data;
+      if (!data) {
+        throw new Error("No hazard data returned from USGS service");
+      }
+
+      const parseValue = (v: any): number | undefined => {
+        if (v === undefined || v === null) return undefined;
+        const val = parseFloat(v?.value ?? v);
+        return isNaN(val) ? undefined : val;
+      };
+
       return {
         location: { latitude, longitude },
-        hazardValues: [
-          {
-            pga: parseFloat(data.pga) || 0,
-            sa0p2: parseFloat(data.sds ?? data.ss) || 0,
-            sa1p0: parseFloat(data.sd1 ?? data.s1) || 0,
-            returnPeriod: 475,
-            probability: 0.1
-          }
-        ],
-        vs30: parseFloat(data.vs30) || 760,
+        pga: parseValue(data.pga),
+        ss: parseValue(data.ss),
+        s1: parseValue(data.s1),
+        sds: parseValue(data.sds),
+        sd1: parseValue(data.sd1),
+        fa: parseValue(data.fa),
+        fv: parseValue(data.fv),
+        tl: parseValue(data.tl),
+        vs30: parseValue(data.vs30) ?? vs30,
+        siteClass: data.siteClass ?? data.site_class ?? siteClass,
+        riskCategory,
         metadata: {
-          model: response.data?.response?.metadata?.model || "USGS Design Maps",
-          edition: response.data?.response?.edition || "ASCE7-16",
-          region: response.data?.response?.region || "US"
+          model: response.data?.response?.metadata?.model,
+          edition: response.data?.response?.edition,
+          region: response.data?.response?.region
         }
       };
     } catch (error) {
       console.error("Error fetching USGS seismic hazard:", error);
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const apiMessage =
+          error.response?.data?.message ||
+          error.response?.data?.error ||
+          error.response?.data?.response?.message ||
+          (Array.isArray(error.response?.data?.response?.errors)
+            ? error.response.data.response.errors
+                .map((e: any) => e.message)
+                .join("; ")
+            : undefined);
+        if (status) {
+          throw new Error(`USGS API error (${status}): ${apiMessage || "Unknown error"}`);
+        }
+      }
       throw new Error(`Failed to fetch seismic hazard data: ${(error as Error).message}`);
     }
   }
