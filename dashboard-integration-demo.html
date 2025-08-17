@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌍 Earthquake Dashboard - AI Integration Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .integration-demo {
+            background: #f8f9fa;
+            border: 2px dashed #007bff;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .demo-section {
+            margin: 30px 0;
+            padding: 20px;
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: transform 0.2s;
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .api-status {
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .code-example {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌍 Earthquake Dashboard</h1>
+            <p>AI-Powered Seismic Analysis Integration Demo</p>
+        </div>
+        
+        <div class="content">
+            <!-- API Status Check -->
+            <div class="demo-section">
+                <h2>🔧 API Connection Status</h2>
+                <button class="button" onclick="checkAPIStatus()">Test API Connection</button>
+                <div id="api-status"></div>
+            </div>
+            
+            <!-- Integration Demo -->
+            <div class="integration-demo">
+                <h3>📋 How to integrate into your existing dashboard:</h3>
+                <p>1. Include the JavaScript integration file</p>
+                <p>2. Add a container element for the AI summary</p>
+                <p>3. Call the integration function</p>
+                <button class="button" onclick="showIntegrationCode()">Show Integration Code</button>
+            </div>
+            
+            <div id="integration-code" style="display: none;">
+                <div class="code-example">
+&lt;!-- 1. Include the integration script in your HTML --&gt;
+&lt;script src="earthquake-ai-integration.js"&gt;&lt;/script&gt;
+
+&lt;!-- 2. Add a container for the AI summary --&gt;
+&lt;div id="ai-summary-container"&gt;&lt;/div&gt;
+
+&lt;!-- 3. Initialize the AI widget --&gt;
+&lt;script&gt;
+// Simple integration - just add AI summary
+EarthquakeAI.createSummaryWidget('ai-summary-container');
+
+// Or add to existing dashboard element
+EarthquakeAI.examples.addSimpleSummary('your-existing-element-id');
+
+// Advanced integration with custom options
+EarthquakeAI.createSummaryWidget('ai-summary-container', {
+    title: '🤖 Custom AI Analysis',
+    summaryType: 'weekly',
+    includePredictions: true,
+    autoRefresh: true,
+    refreshInterval: 300000 // 5 minutes
+});
+&lt;/script&gt;
+                </div>
+            </div>
+            
+            <!-- Live Demonstrations -->
+            <div class="grid">
+                <!-- AI Summary Widget Demo -->
+                <div class="demo-section">
+                    <h3>🤖 AI Summary Widget</h3>
+                    <button class="button" onclick="loadAISummary()">Load AI Summary</button>
+                    <div id="ai-summary-demo"></div>
+                </div>
+                
+                <!-- Pattern Analysis Demo -->
+                <div class="demo-section">
+                    <h3>📈 Pattern Analysis</h3>
+                    <button class="button" onclick="loadPatternAnalysis()">Analyze Patterns</button>
+                    <div id="pattern-analysis-demo"></div>
+                </div>
+            </div>
+            
+            <!-- Recent Earthquakes with AI -->
+            <div class="demo-section">
+                <h3>🌋 Recent Earthquakes + AI Insights</h3>
+                <button class="button" onclick="loadRecentEarthquakes()">Load Recent Data</button>
+                <div id="recent-earthquakes-demo"></div>
+            </div>
+            
+            <!-- API Examples -->
+            <div class="demo-section">
+                <h3>🔌 Available API Functions</h3>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                    <button class="button" onclick="testFunction('getSummary')">getSummary()</button>
+                    <button class="button" onclick="testFunction('getRecentEarthquakes')">getRecentEarthquakes()</button>
+                    <button class="button" onclick="testFunction('analyzePatterns')">analyzePatterns()</button>
+                    <button class="button" onclick="testFunction('getSignificantEarthquakes')">getSignificantEarthquakes()</button>
+                </div>
+                <div id="api-examples-output"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include the earthquake AI integration module -->
+    <script src="earthquake-ai-integration.js"></script>
+    
+    <script>
+        // Demo functions
+        
+        async function checkAPIStatus() {
+            const statusDiv = document.getElementById('api-status');
+            statusDiv.innerHTML = '<div class="api-status">⏳ Testing connection...</div>';
+            
+            const result = await EarthquakeAI.testConnection();
+            
+            if (result.status === 'success') {
+                statusDiv.innerHTML = `
+                    <div class="api-status status-success">
+                        ✅ ${result.message}
+                    </div>
+                `;
+            } else {
+                statusDiv.innerHTML = `
+                    <div class="api-status status-error">
+                        ❌ Error: ${result.message}
+                        <br><small>Make sure the API server is running: python earthquake_api.py</small>
+                    </div>
+                `;
+            }
+        }
+        
+        function showIntegrationCode() {
+            const codeDiv = document.getElementById('integration-code');
+            codeDiv.style.display = codeDiv.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        async function loadAISummary() {
+            await EarthquakeAI.createSummaryWidget('ai-summary-demo', {
+                title: '🤖 Demo AI Summary',
+                summaryType: 'daily',
+                autoRefresh: false
+            });
+        }
+        
+        async function loadPatternAnalysis() {
+            const container = document.getElementById('pattern-analysis-demo');
+            container.innerHTML = '<p>⏳ Loading pattern analysis...</p>';
+            
+            const patterns = await EarthquakeAI.analyzePatterns('global', '7d', 4.0);
+            
+            if (patterns.success) {
+                container.innerHTML = `
+                    <div style="background: #e8f5e8; padding: 15px; border-radius: 6px; border-left: 4px solid #28a745;">
+                        <h4>📊 Risk Level: ${patterns.riskLevel}</h4>
+                        <p><strong>Analysis:</strong> ${patterns.analysis}</p>
+                        ${patterns.trends ? `<p><strong>Trends:</strong> ${patterns.trends}</p>` : ''}
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `<div style="color: red;">❌ Error: ${patterns.error}</div>`;
+            }
+        }
+        
+        async function loadRecentEarthquakes() {
+            const container = document.getElementById('recent-earthquakes-demo');
+            container.innerHTML = '<p>⏳ Loading recent earthquakes...</p>';
+            
+            const data = await EarthquakeAI.getRecentEarthquakes(4.0, 10, 7);
+            
+            if (data.success) {
+                const earthquakesList = data.earthquakes.map(eq => `
+                    <div style="background: #f8f9fa; margin: 5px 0; padding: 10px; border-radius: 4px; border-left: 3px solid #007bff;">
+                        <strong>M${eq.magnitude}</strong> - ${eq.place}
+                        <br><small>${new Date(eq.time).toLocaleString()}</small>
+                        <br><small>Depth: ${eq.depth}km</small>
+                    </div>
+                `).join('');
+                
+                container.innerHTML = `
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                        <h4>📊 Statistics (Last 7 days, M4.0+)</h4>
+                        <p><strong>Total:</strong> ${data.count} earthquakes</p>
+                        <p><strong>Max Magnitude:</strong> M${data.maxMagnitude}</p>
+                        <p><strong>Average Magnitude:</strong> M${data.avgMagnitude}</p>
+                    </div>
+                    <h4>🌋 Recent Earthquakes:</h4>
+                    ${earthquakesList}
+                `;
+            } else {
+                container.innerHTML = `<div style="color: red;">❌ Error: ${data.error}</div>`;
+            }
+        }
+        
+        async function testFunction(functionName) {
+            const outputDiv = document.getElementById('api-examples-output');
+            outputDiv.innerHTML = `<p>⏳ Testing ${functionName}()...</p>`;
+            
+            let result;
+            try {
+                switch(functionName) {
+                    case 'getSummary':
+                        result = await EarthquakeAI.getSummary('daily', true);
+                        break;
+                    case 'getRecentEarthquakes':
+                        result = await EarthquakeAI.getRecentEarthquakes(3.0, 5, 1);
+                        break;
+                    case 'analyzePatterns':
+                        result = await EarthquakeAI.analyzePatterns('global', '7d', 4.0);
+                        break;
+                    case 'getSignificantEarthquakes':
+                        result = await EarthquakeAI.getSignificantEarthquakes(7, true);
+                        break;
+                }
+                
+                outputDiv.innerHTML = `
+                    <div class="code-example" style="max-height: 300px; overflow-y: auto;">
+                        <strong>${functionName}() Result:</strong><br>
+                        ${JSON.stringify(result, null, 2)}
+                    </div>
+                `;
+            } catch (error) {
+                outputDiv.innerHTML = `<div style="color: red;">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        // Auto-check API status on load
+        window.addEventListener('load', () => {
+            setTimeout(checkAPIStatus, 1000);
+        });
+    </script>
+</body>
+</html>

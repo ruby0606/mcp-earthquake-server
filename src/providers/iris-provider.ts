@@ -118,7 +118,7 @@ export class IrisDataProvider {
 
       // Parse IRIS text format response
       // Format: EventID|Time|Latitude|Longitude|Depth/km|Author|Catalog|Contributor|ContributorID|MagType|Magnitude|MagAuthor|EventLocationName
-      const lines = response.data.trim().split('\n').filter(line => !line.startsWith('#'));
+      const lines = response.data.trim().split('\n').filter((line: string) => !line.startsWith('#'));
       
       const events: EarthquakeEvent[] = [];
       
@@ -233,60 +233,148 @@ export class IrisDataProvider {
   }
 
   /**
-   * Fetch waveform data for a specific event
+   * Fetch real waveform data using miniSEED parser
    */
   async getWaveformData(options: WaveformOptions): Promise<WaveformData> {
     try {
-      const url = `${this.irisWs}/timeseries/1/query`;
-      const params = new URLSearchParams({
-        net: options.network,
-        sta: options.station,
-        cha: options.channel,
-        start: options.startTime,
-        end: options.endTime,
-        output: "ascii"
+      // Use Python miniSEED parser to fetch real waveform data from IRIS FDSN
+      const { spawn } = await import('child_process');
+      const path = await import('path');
+      const fs = await import('fs');
+      const { fileURLToPath } = await import('url');
+      
+      // Get the current module directory (ES module equivalent of __dirname)
+      const thisDir = path.dirname(fileURLToPath(import.meta.url));
+      
+      // Determine location code - use '00' as default if not specified
+      const location = options.channel.includes('.') ? 
+        options.channel.split('.')[0] : '00';
+      const channelCode = options.channel.includes('.') ? 
+        options.channel.split('.')[1] : options.channel;
+      
+      // Find the miniSEED parser script - try multiple locations
+      let pythonScript: string;
+      
+      // Try 1: Current working directory (when running tests)
+      const cwdScript = path.join(process.cwd(), 'miniseed_parser.py');
+      
+      // Try 2: Module directory (when running as built MCP server)
+      const moduleDir = path.dirname(path.dirname(thisDir)); // Go up from dist/providers to project root
+      const moduleScript = path.join(moduleDir, 'miniseed_parser.py');
+      
+      // Try 3: Same directory as this file
+      const localScript = path.join(thisDir, '..', '..', 'miniseed_parser.py');
+      
+      if (fs.existsSync(cwdScript)) {
+        pythonScript = cwdScript;
+      } else if (fs.existsSync(moduleScript)) {
+        pythonScript = moduleScript;
+      } else if (fs.existsSync(localScript)) {
+        pythonScript = localScript;
+      } else {
+        throw new Error(`miniSEED parser script not found. Tried:\n  ${cwdScript}\n  ${moduleScript}\n  ${localScript}`);
+      }
+      
+      const args = [
+        pythonScript,
+        '--network', options.network,
+        '--station', options.station,
+        '--location', location,
+        '--channel', channelCode,
+        '--start', options.startTime,
+        '--end', options.endTime,
+        '--quality', 'B'  // Best quality data
+      ];
+      
+      // Execute Python miniSEED parser
+      const result = await new Promise<string>((resolve, reject) => {
+        const python = spawn('python', args, { 
+          stdio: ['ignore', 'pipe', 'pipe'],
+          cwd: process.cwd()
+        });
+        
+        let stdout = '';
+        let stderr = '';
+        
+        python.stdout.on('data', (data) => {
+          stdout += data.toString();
+        });
+        
+        python.stderr.on('data', (data) => {
+          stderr += data.toString();
+        });
+        
+        python.on('close', (code) => {
+          if (code === 0) {
+            resolve(stdout);
+          } else {
+            reject(new Error(`Python parser failed with code ${code}: ${stderr}`));
+          }
+        });
+        
+        python.on('error', (error) => {
+          reject(new Error(`Failed to spawn Python process: ${error.message}`));
+        });
+        
+        // Timeout after 2 minutes
+        setTimeout(() => {
+          python.kill();
+          reject(new Error('Python parser timed out'));
+        }, 120000);
       });
-
-      const response = await axios.get(`${url}?${params.toString()}`, {
-        responseType: "text",
-        headers: { "User-Agent": "MCP-Earthquake-Server/1.0" },
-        timeout: 30000
-      });
-
-      const lines = response.data
-        .split("\n")
-        .map((l: string) => l.trim())
-        .filter((l: string) => l);
-
-      const sampleRateLine = lines.find((l: string) => l.toLowerCase().startsWith("samplerate"));
-      const sampleRate = sampleRateLine ? parseFloat(sampleRateLine.split("=")[1]) : 0;
-
-      const dataStartIndex = lines.findIndex((l: string) => /^[-0-9.\s]+$/.test(l));
-      const sampleLines = dataStartIndex >= 0 ? lines.slice(dataStartIndex) : [];
-      const samples = sampleLines
-        .flatMap((l: string) => l.split(/\s+/).map((n: string) => parseFloat(n)))
-        .filter((n: number) => !isNaN(n));
-
-      const duration = (new Date(options.endTime).getTime() - new Date(options.startTime).getTime()) / 1000;
-      const peakAmplitude = Math.max(...samples.map((s: number) => Math.abs(s)));
-      const rmsAmplitude = Math.sqrt(samples.reduce((sum: number, v: number) => sum + v * v, 0) / (samples.length || 1));
-
+      
+      // Parse JSON result from Python
+      const parsedResult = JSON.parse(result);
+      
+      if (!parsedResult.success) {
+        // Handle specific error cases
+        if (parsedResult.error === 'no-data-available' || parsedResult.error === 'http-404') {
+          return {
+            eventId: options.eventId,
+            network: options.network,
+            station: options.station,
+            channel: options.channel,
+            startTime: options.startTime,
+            endTime: options.endTime,
+            sampleRate: 0,
+            samples: [],
+            duration: (new Date(options.endTime).getTime() - new Date(options.startTime).getTime()) / 1000,
+            peakAmplitude: 0,
+            rmsAmplitude: 0,
+            quality: "no-data-available"
+          };
+        } else {
+          throw new Error(`miniSEED parsing failed: ${parsedResult.message || parsedResult.error}`);
+        }
+      }
+      
+      // Return real waveform data parsed from miniSEED
       return {
         eventId: options.eventId,
-        network: options.network,
-        station: options.station,
-        channel: options.channel,
-        startTime: options.startTime,
-        endTime: options.endTime,
-        sampleRate,
-        samples,
-        duration,
-        peakAmplitude,
-        rmsAmplitude,
-        quality: "raw"
+        network: parsedResult.network,
+        station: parsedResult.station,
+        channel: parsedResult.channel,
+        startTime: parsedResult.starttime,
+        endTime: parsedResult.endtime,
+        sampleRate: parsedResult.sampling_rate,
+        samples: parsedResult.samples, // Real seismic data samples!
+        duration: parsedResult.duration,
+        peakAmplitude: parsedResult.peak_amplitude,
+        rmsAmplitude: parsedResult.rms_amplitude,
+        quality: parsedResult.format // "real-miniseed"
       };
+      
     } catch (error) {
       console.error("Error fetching IRIS waveform data:", error);
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 400) {
+          throw new Error(`Invalid waveform parameters: Check network=${options.network}, station=${options.station}, channel=${options.channel}, time range=${options.startTime} to ${options.endTime}`);
+        } else if (error.response?.status === 404) {
+          throw new Error(`No waveform data available for ${options.network}.${options.station}.${options.channel} during specified time period`);
+        } else if (error.response?.status === 204) {
+          throw new Error(`No data returned for ${options.network}.${options.station}.${options.channel} - station may be offline or no data exists for time period`);
+        }
+      }
       throw new Error(`Failed to fetch waveform data: ${(error as Error).message}`);
     }
   }
@@ -307,7 +395,7 @@ export class IrisDataProvider {
         return null;
       }
 
-      const lines = response.data.trim().split('\n').filter(line => !line.startsWith('#'));
+      const lines = response.data.trim().split('\n').filter((line: string) => !line.startsWith('#'));
       if (lines.length === 0) {
         return null;
       }

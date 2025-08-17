@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌍 Real-Time Earthquake Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #667eea;
+            margin: 0;
+            font-size: 2.5em;
+        }
+        
+        .header p {
+            color: #666;
+            margin: 10px 0 0 0;
+            font-size: 1.1em;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card.blue { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+        .stat-card.green { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+        .stat-card.purple { background: linear-gradient(135deg, #fa709a, #fee140); }
+        
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .section {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .section h2 {
+            color: #667eea;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .earthquake-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-left: 4px solid #667eea;
+            background: #f8f9ff;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        
+        .earthquake-info {
+            flex: 1;
+        }
+        
+        .earthquake-magnitude {
+            background: #ff6b6b;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        .earthquake-location {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .earthquake-time {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .error {
+            background: #ffe6e6;
+            border: 1px solid #ff9999;
+            color: #cc0000;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .controls input, .controls select, .controls button {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .controls button {
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .controls button:hover {
+            background: #5a6fd8;
+        }
+        
+        .ai-summary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            line-height: 1.6;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .refresh-info {
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌍 Real-Time Earthquake Dashboard</h1>
+            <p>Live USGS data with AI-powered analysis | <span id="last-update">Loading...</span></p>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="total-today">-</div>
+                <div class="stat-label">Earthquakes Today</div>
+            </div>
+            <div class="stat-card blue">
+                <div class="stat-number" id="max-magnitude">-</div>
+                <div class="stat-label">Largest Magnitude</div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-number" id="significant-count">-</div>
+                <div class="stat-label">Significant (M4.5+)</div>
+            </div>
+            <div class="stat-card purple">
+                <div class="stat-number" id="avg-magnitude">-</div>
+                <div class="stat-label">Average Magnitude</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🔧 Controls</h2>
+            <div class="controls">
+                <input type="number" id="magnitude-filter" placeholder="Min Magnitude" value="4.0" step="0.1" min="0">
+                <input type="number" id="limit-filter" placeholder="Limit" value="20" min="1" max="100">
+                <select id="days-filter">
+                    <option value="1">Last 24 hours</option>
+                    <option value="7">Last 7 days</option>
+                    <option value="30">Last 30 days</option>
+                </select>
+                <input type="text" id="location-filter" placeholder="Location (optional)">
+                <button onclick="loadEarthquakes()">🔄 Refresh Data</button>
+                <button onclick="loadAISummary()">🤖 Get AI Summary</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🌍 Recent Earthquakes</h2>
+            <div id="earthquake-list">
+                <div class="loading">Loading earthquake data...</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🤖 AI Analysis Summary</h2>
+            <div id="ai-summary">
+                <div class="loading">Click "Get AI Summary" to load AI analysis...</div>
+            </div>
+        </div>
+        
+        <div class="refresh-info">
+            Data refreshes automatically every 5 minutes | Last API call: <span id="api-status">Initializing...</span>
+        </div>
+    </div>
+
+    <script>
+        let earthquakeData = [];
+        
+        async function makeAPICall(endpoint, params = {}) {
+            try {
+                const url = new URL(`http://localhost:5001/api/earthquakes/${endpoint}`);
+                Object.keys(params).forEach(key => {
+                    if (params[key] !== null && params[key] !== undefined && params[key] !== '') {
+                        url.searchParams.append(key, params[key]);
+                    }
+                });
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                document.getElementById('api-status').textContent = 'Success ✅';
+                return data;
+            } catch (error) {
+                console.error('API Error:', error);
+                document.getElementById('api-status').textContent = 'Error ❌';
+                return { error: error.message };
+            }
+        }
+        
+        async function loadEarthquakes() {
+            const listEl = document.getElementById('earthquake-list');
+            listEl.innerHTML = '<div class="loading">Loading earthquake data...</div>';
+            
+            const params = {
+                magnitude_min: document.getElementById('magnitude-filter').value,
+                limit: document.getElementById('limit-filter').value,
+                days: document.getElementById('days-filter').value,
+                location: document.getElementById('location-filter').value
+            };
+            
+            const result = await makeAPICall('recent', params);
+            
+            if (result.error) {
+                listEl.innerHTML = `<div class="error">Error loading earthquakes: ${result.error}</div>`;
+                return;
+            }
+            
+            // Parse earthquake data
+            let earthquakes = [];
+            if (result.content && result.content[0] && result.content[0].text) {
+                try {
+                    const data = JSON.parse(result.content[0].text);
+                    earthquakes = data.earthquakes || [];
+                    earthquakeData = earthquakes;
+                } catch (e) {
+                    listEl.innerHTML = `<div class="error">Error parsing earthquake data: ${e.message}</div>`;
+                    return;
+                }
+            }
+            
+            // Update statistics
+            updateStatistics(earthquakes);
+            
+            // Display earthquakes
+            if (earthquakes.length === 0) {
+                listEl.innerHTML = '<div class="loading">No earthquakes found matching your criteria.</div>';
+                return;
+            }
+            
+            listEl.innerHTML = earthquakes.map(eq => `
+                <div class="earthquake-item">
+                    <div class="earthquake-info">
+                        <div class="earthquake-location">${eq.location}</div>
+                        <div class="earthquake-time">${new Date(eq.time).toLocaleString()}</div>
+                    </div>
+                    <div class="earthquake-magnitude">M${eq.magnitude}</div>
+                </div>
+            `).join('');
+            
+            document.getElementById('last-update').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+        }
+        
+        function updateStatistics(earthquakes) {
+            const totalEl = document.getElementById('total-today');
+            const maxMagEl = document.getElementById('max-magnitude');
+            const significantEl = document.getElementById('significant-count');
+            const avgMagEl = document.getElementById('avg-magnitude');
+            
+            totalEl.textContent = earthquakes.length;
+            
+            if (earthquakes.length > 0) {
+                const magnitudes = earthquakes.map(eq => eq.magnitude);
+                const maxMag = Math.max(...magnitudes);
+                const avgMag = (magnitudes.reduce((a, b) => a + b, 0) / magnitudes.length).toFixed(1);
+                const significantCount = earthquakes.filter(eq => eq.magnitude >= 4.5).length;
+                
+                maxMagEl.textContent = `M${maxMag}`;
+                avgMagEl.textContent = `M${avgMag}`;
+                significantEl.textContent = significantCount;
+            } else {
+                maxMagEl.textContent = '-';
+                avgMagEl.textContent = '-';
+                significantEl.textContent = '0';
+            }
+        }
+        
+        async function loadAISummary() {
+            const summaryEl = document.getElementById('ai-summary');
+            summaryEl.innerHTML = '<div class="loading">Generating AI summary...</div>';
+            
+            const result = await makeAPICall('summary', { type: 'daily', include_predictions: 'true' });
+            
+            if (result.error) {
+                summaryEl.innerHTML = `<div class="error">Error loading AI summary: ${result.error}</div>`;
+                return;
+            }
+            
+            if (result.content && result.content[0] && result.content[0].text) {
+                summaryEl.innerHTML = `<div class="ai-summary">${result.content[0].text}</div>`;
+            } else {
+                summaryEl.innerHTML = '<div class="error">No AI summary available</div>';
+            }
+        }
+        
+        // Initialize dashboard
+        window.onload = function() {
+            loadEarthquakes();
+            
+            // Auto-refresh every 5 minutes
+            setInterval(loadEarthquakes, 5 * 60 * 1000);
+        };
+    </script>
+</body>
+</html>

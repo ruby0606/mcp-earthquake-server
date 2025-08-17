@@ -396,7 +396,6 @@ export class GnssDataProvider {
       // Format: http://geodesy.unr.edu/gps_timeseries/tenv3/IGS14/{STATION}.tenv3
       
       const nglUrl = `${this.nglUrl}/tenv3/IGS14/${stationId.toUpperCase()}.tenv3`;
-      console.log(`Fetching GNSS time series from NGL: ${nglUrl}`);
       
       const response = await axios.get(nglUrl, {
         headers: {
@@ -535,7 +534,6 @@ export class GnssDataProvider {
     try {
       const stations = await this.getStations(undefined, region);
       // Note: Production anomaly detection requires authenticated access to UNAVCO/NGL real-time data
-      console.log(`Anomaly detection for ${stations.length} stations requires authenticated UNAVCO/NGL access`);
 
       return [];
     } catch (error) {

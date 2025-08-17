@@ -102,17 +102,17 @@ export interface USGSHazardData {
 }
 
 export interface USGSSearchParams {
-  starttime?: string; // ISO8601 Date/Time
-  endtime?: string; // ISO8601 Date/Time
-  minlatitude?: number;
-  maxlatitude?: number;
-  minlongitude?: number;
-  maxlongitude?: number;
+  startTime?: string; // ISO8601 Date/Time (mapped to starttime)
+  endTime?: string; // ISO8601 Date/Time (mapped to endtime)
+  minLatitude?: number; // Mapped to minlatitude
+  maxLatitude?: number; // Mapped to maxlatitude
+  minLongitude?: number; // Mapped to minlongitude
+  maxLongitude?: number; // Mapped to maxlongitude
   latitude?: number; // Specify the latitude for the search
   longitude?: number; // Specify the longitude for the search
-  maxradiuskm?: number; // Limits to events within the specified maximum number of kilometers
-  minmagnitude?: number;
-  maxmagnitude?: number;
+  maxRadiusKm?: number; // Limits to events within the specified maximum number of kilometers (mapped to maxradiuskm)
+  minMagnitude?: number; // Mapped to minmagnitude
+  maxMagnitude?: number; // Mapped to maxmagnitude
   mindepth?: number;
   maxdepth?: number;
   orderby?: 'time' | 'time-asc' | 'magnitude' | 'magnitude-asc';
@@ -131,7 +131,6 @@ export class USGSDataProvider {
   async getEarthquakes(magnitude: string = "all", timeframe: string = "day"): Promise<USGSFeatureCollection> {
     try {
       const feedUrl = `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/${magnitude}_${timeframe}.geojson`;
-      console.log(`Fetching earthquakes from USGS: ${feedUrl}`);
 
       const response = await axios.get(feedUrl, {
         headers: { 'User-Agent': 'MCP-Earthquake-Server/1.0' },
@@ -152,10 +151,24 @@ export class USGSDataProvider {
     try {
       const queryParams = new URLSearchParams();
       
-      // Add all provided parameters to the query
+      // Map MCP schema parameters to USGS API parameters
+      const paramMapping: Record<string, string> = {
+        'startTime': 'starttime',
+        'endTime': 'endtime',
+        'minLatitude': 'minlatitude',
+        'maxLatitude': 'maxlatitude',
+        'minLongitude': 'minlongitude',
+        'maxLongitude': 'maxlongitude',
+        'maxRadiusKm': 'maxradiuskm',
+        'minMagnitude': 'minmagnitude',
+        'maxMagnitude': 'maxmagnitude'
+      };
+
+      // Add all provided parameters to the query with correct API names
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
-          queryParams.append(key, value.toString());
+          const apiKey = paramMapping[key] || key;
+          queryParams.append(apiKey, value.toString());
         }
       });
       
@@ -163,7 +176,6 @@ export class USGSDataProvider {
       queryParams.append('format', 'geojson');
 
       const url = `${this.apiUrl}/query?${queryParams.toString()}`;
-      console.log(`Searching USGS earthquakes: ${url}`);
 
       const response = await axios.get(url, {
         headers: { 'User-Agent': 'MCP-Earthquake-Server/1.0' },
@@ -219,7 +231,6 @@ export class USGSDataProvider {
         await axios.head(shakemapUrl, { timeout: 10000 });
         hasShakeMap = true;
       } catch (error) {
-        console.log(`No ShakeMap available for event ${eventId}`);
         hasShakeMap = false;
       }
 
@@ -254,7 +265,6 @@ export class USGSDataProvider {
   async getEarthquakeDetails(eventId: string): Promise<USGSEarthquake> {
     try {
       const url = `${this.apiUrl}/query?eventid=${eventId}&format=geojson`;
-      console.log(`Fetching earthquake details from USGS: ${url}`);
       
       const response = await axios.get(url, {
         headers: { 'User-Agent': 'MCP-Earthquake-Server/1.0' },

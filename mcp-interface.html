@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USGS Earthquake MCP Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .tool-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .tool-title {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        input, select {
+            width: 200px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            cursor: pointer;
+            border: none;
+            padding: 10px 20px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .result {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .loading {
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        .error {
+            color: #e74c3c;
+            background-color: #fdf2f2;
+            border: 1px solid #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌍 USGS Earthquake MCP Server Interface</h1>
+        <p>This interface connects to your locally running MCP server for USGS earthquake data and AI analysis.</p>
+        
+        <div class="tool-section">
+            <h2 class="tool-title">Recent Earthquakes</h2>
+            <div class="form-group">
+                <label for="magnitude">Minimum Magnitude:</label>
+                <input type="number" id="magnitude" value="2.5" step="0.1" min="0">
+            </div>
+            <div class="form-group">
+                <label for="limit">Limit:</label>
+                <input type="number" id="limit" value="50" min="1" max="1000">
+            </div>
+            <div class="form-group">
+                <label for="days">Days Back:</label>
+                <input type="number" id="days" value="7" min="1" max="365">
+            </div>
+            <div class="form-group">
+                <label for="location">Location (optional):</label>
+                <input type="text" id="location" placeholder="e.g., California, Japan">
+            </div>
+            <button onclick="getRecentEarthquakes()">Get Recent Earthquakes</button>
+            <div id="recent-result" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="tool-section">
+            <h2 class="tool-title">Earthquake Summary</h2>
+            <div class="form-group">
+                <label for="summary-type">Summary Type:</label>
+                <select id="summary-type">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="regional">Regional</option>
+                    <option value="significant">Significant Events</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="include-predictions" checked>
+                    Include Predictions
+                </label>
+            </div>
+            <button onclick="getSummary()">Generate Summary</button>
+            <div id="summary-result" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="tool-section">
+            <h2 class="tool-title">Pattern Analysis</h2>
+            <div class="form-group">
+                <label for="region">Region:</label>
+                <input type="text" id="region" value="global" placeholder="global, California, Japan">
+            </div>
+            <div class="form-group">
+                <label for="time-window">Time Window:</label>
+                <select id="time-window">
+                    <option value="1d">1 Day</option>
+                    <option value="7d" selected>7 Days</option>
+                    <option value="30d">30 Days</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="mag-threshold">Magnitude Threshold:</label>
+                <input type="number" id="mag-threshold" value="4.0" step="0.1" min="0">
+            </div>
+            <button onclick="analyzePatterns()">Analyze Patterns</button>
+            <div id="analysis-result" class="result" style="display:none;"></div>
+        </div>
+
+        <div class="tool-section">
+            <h2 class="tool-title">Significant Earthquakes</h2>
+            <div class="form-group">
+                <label for="days-back">Days Back:</label>
+                <input type="number" id="days-back" value="30" min="1" max="365">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="include-aftershocks" checked>
+                    Include Aftershock Analysis
+                </label>
+            </div>
+            <button onclick="getSignificantEarthquakes()">Get Significant Events</button>
+            <div id="significant-result" class="result" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Note: This is a mock interface. In a real implementation, you would need:
+        // 1. A backend API that communicates with the MCP server
+        // 2. WebSocket or HTTP endpoints to call MCP tools
+        // 3. Proper error handling and authentication
+
+        function showLoading(resultId) {
+            const resultDiv = document.getElementById(resultId);
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result loading';
+            resultDiv.textContent = 'Loading...';
+        }
+
+        function showResult(resultId, data, isError = false) {
+            const resultDiv = document.getElementById(resultId);
+            resultDiv.style.display = 'block';
+            resultDiv.className = isError ? 'result error' : 'result';
+            resultDiv.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+        }
+
+        function mockMCPCall(toolName, args) {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve({
+                        success: true,
+                        message: `Mock response for ${toolName} with args: ${JSON.stringify(args, null, 2)}\n\nTo get real data, ensure your MCP server is running and connect this interface to a backend API.`
+                    });
+                }, 1000);
+            });
+        }
+
+        async function getRecentEarthquakes() {
+            showLoading('recent-result');
+            try {
+                const args = {
+                    magnitude_min: parseFloat(document.getElementById('magnitude').value),
+                    limit: parseInt(document.getElementById('limit').value),
+                    days: parseInt(document.getElementById('days').value),
+                    location: document.getElementById('location').value || undefined
+                };
+                const result = await mockMCPCall('get_recent_earthquakes', args);
+                showResult('recent-result', result);
+            } catch (error) {
+                showResult('recent-result', error.message, true);
+            }
+        }
+
+        async function getSummary() {
+            showLoading('summary-result');
+            try {
+                const args = {
+                    type: document.getElementById('summary-type').value,
+                    include_predictions: document.getElementById('include-predictions').checked
+                };
+                const result = await mockMCPCall('get_earthquake_summary', args);
+                showResult('summary-result', result);
+            } catch (error) {
+                showResult('summary-result', error.message, true);
+            }
+        }
+
+        async function analyzePatterns() {
+            showLoading('analysis-result');
+            try {
+                const args = {
+                    region: document.getElementById('region').value,
+                    time_window: document.getElementById('time-window').value,
+                    magnitude_threshold: parseFloat(document.getElementById('mag-threshold').value)
+                };
+                const result = await mockMCPCall('analyze_earthquake_patterns', args);
+                showResult('analysis-result', result);
+            } catch (error) {
+                showResult('analysis-result', error.message, true);
+            }
+        }
+
+        async function getSignificantEarthquakes() {
+            showLoading('significant-result');
+            try {
+                const args = {
+                    days_back: parseInt(document.getElementById('days-back').value),
+                    include_aftershocks: document.getElementById('include-aftershocks').checked
+                };
+                const result = await mockMCPCall('get_significant_earthquakes', args);
+                showResult('significant-result', result);
+            } catch (error) {
+                showResult('significant-result', error.message, true);
+            }
+        }
+
+        // Display connection status
+        window.onload = function() {
+            console.log('MCP Interface loaded. To connect to real data:');
+            console.log('1. Ensure Node.js is installed');
+            console.log('2. Build and run the MCP server: npm run build && npm start');
+            console.log('3. Create a backend API to bridge this interface with the MCP server');
+        };
+    </script>
+</body>
+</html>

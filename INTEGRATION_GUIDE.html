@@ -1,0 +1,208 @@
+<!-- 
+QUICK INTEGRATION GUIDE
+======================
+
+Copy and paste this code into your existing earthquake dashboard to add AI summaries.
+
+STEP 1: Add this script tag to your HTML head section
+-->
+<script src="http://localhost:5001/static/earthquake-ai-integration.js"></script>
+
+<!-- 
+STEP 2: Add this HTML where you want the AI summary to appear
+-->
+<div id="ai-earthquake-summary" style="margin: 20px 0;"></div>
+
+<!-- 
+STEP 3: Add this JavaScript code to initialize the AI summary
+(Put this in a script tag at the bottom of your page or in your existing JS)
+-->
+<script>
+// Simple AI Integration - Add this to your existing dashboard JavaScript
+
+// Function to add AI summary to your dashboard
+async function addEarthquakeAISummary() {
+    try {
+        // Create the AI summary widget
+        await EarthquakeAI.createSummaryWidget('ai-earthquake-summary', {
+            title: '🤖 AI Earthquake Analysis',
+            summaryType: 'daily',
+            includePredictions: true,
+            autoRefresh: true,
+            refreshInterval: 300000 // Refresh every 5 minutes
+        });
+        
+        console.log('✅ AI Summary loaded successfully!');
+    } catch (error) {
+        console.error('❌ Error loading AI summary:', error);
+        document.getElementById('ai-earthquake-summary').innerHTML = 
+            '<div style="padding: 15px; background: #ffe6e6; border: 1px solid #ff9999; border-radius: 5px;">' +
+            '⚠️ AI Analysis temporarily unavailable. Please ensure the MCP server is running.' +
+            '</div>';
+    }
+}
+
+// Alternative: Quick summary insertion (if you just want text)
+async function addQuickAISummary(elementId) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    element.innerHTML = '<p>🤖 Loading AI analysis...</p>';
+    
+    const summary = await EarthquakeAI.getSummary('daily', true);
+    if (summary.success) {
+        element.innerHTML = `
+            <div style="
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 20px;
+                border-radius: 8px;
+                margin: 15px 0;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            ">
+                <h3 style="margin: 0 0 15px 0;">🤖 AI Earthquake Summary</h3>
+                <p style="line-height: 1.6; margin: 0;">${summary.summary}</p>
+                ${summary.riskAssessment ? `
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
+                        <strong>⚠️ Risk Assessment:</strong><br>
+                        ${summary.riskAssessment}
+                    </div>
+                ` : ''}
+                <div style="margin-top: 15px; font-size: 12px; opacity: 0.8;">
+                    Updated: ${new Date().toLocaleTimeString()}
+                </div>
+            </div>
+        `;
+    } else {
+        element.innerHTML = `<p style="color: red;">❌ Error loading AI summary: ${summary.error}</p>`;
+    }
+}
+
+// Call this function when your page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait a moment for everything to load, then add the AI summary
+    setTimeout(addEarthquakeAISummary, 2000);
+});
+
+// Optional: Add refresh button
+function refreshAISummary() {
+    addEarthquakeAISummary();
+}
+</script>
+
+<!-- 
+STEP 4 (Optional): Add a refresh button for manual updates
+-->
+<button onclick="refreshAISummary()" style="
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin: 10px 0;
+">
+    🔄 Refresh AI Analysis
+</button>
+
+<!-- 
+ADVANCED INTEGRATION OPTIONS
+============================
+
+1. Get recent earthquakes with AI insights:
+-->
+<script>
+async function addRecentEarthquakesWithAI(containerId) {
+    const container = document.getElementById(containerId);
+    const data = await EarthquakeAI.getRecentEarthquakes(3.0, 20, 7);
+    
+    if (data.success) {
+        const earthquakesList = data.earthquakes.slice(0, 5).map(eq => `
+            <div style="background: #f8f9fa; margin: 8px 0; padding: 12px; border-radius: 6px; border-left: 3px solid #007bff;">
+                <strong>M${eq.magnitude}</strong> - ${eq.place}
+                <br><small>📅 ${new Date(eq.time).toLocaleString()}</small>
+                <br><small>📍 Depth: ${eq.depth}km</small>
+            </div>
+        `).join('');
+        
+        container.innerHTML = `
+            <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                <h4>🌋 Recent Earthquakes + AI Stats</h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 15px;">
+                    <div style="text-align: center; background: white; padding: 10px; border-radius: 5px;">
+                        <strong>${data.count}</strong><br><small>Total (7d)</small>
+                    </div>
+                    <div style="text-align: center; background: white; padding: 10px; border-radius: 5px;">
+                        <strong>M${data.maxMagnitude}</strong><br><small>Max Mag</small>
+                    </div>
+                    <div style="text-align: center; background: white; padding: 10px; border-radius: 5px;">
+                        <strong>M${data.avgMagnitude}</strong><br><small>Avg Mag</small>
+                    </div>
+                </div>
+                ${earthquakesList}
+            </div>
+        `;
+    }
+}
+</script>
+
+<!-- 
+2. Pattern analysis widget:
+-->
+<script>
+async function addPatternAnalysis(containerId) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '<p>📈 Analyzing patterns...</p>';
+    
+    const patterns = await EarthquakeAI.analyzePatterns('global', '7d', 4.0);
+    
+    if (patterns.success) {
+        container.innerHTML = `
+            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; border: 1px solid #ffeaa7;">
+                <h4>📈 Seismic Pattern Analysis</h4>
+                <div style="background: white; padding: 12px; border-radius: 5px; margin: 10px 0;">
+                    <strong>🎯 Risk Level:</strong> ${patterns.riskLevel}
+                </div>
+                <p><strong>Analysis:</strong> ${patterns.analysis}</p>
+                ${patterns.trends ? `<p><strong>Trends:</strong> ${patterns.trends}</p>` : ''}
+            </div>
+        `;
+    }
+}
+</script>
+
+<!-- 
+USAGE EXAMPLES:
+===============
+
+In your existing dashboard, you can now add:
+
+1. Full AI widget:
+   <div id="my-ai-summary"></div>
+   <script>EarthquakeAI.createSummaryWidget('my-ai-summary');</script>
+
+2. Quick summary:
+   <div id="quick-summary"></div>
+   <script>addQuickAISummary('quick-summary');</script>
+
+3. Recent earthquakes with stats:
+   <div id="recent-with-ai"></div>
+   <script>addRecentEarthquakesWithAI('recent-with-ai');</script>
+
+4. Pattern analysis:
+   <div id="pattern-analysis"></div>
+   <script>addPatternAnalysis('pattern-analysis');</script>
+
+TROUBLESHOOTING:
+===============
+
+1. Make sure the MCP API server is running:
+   python earthquake_api.py
+
+2. Check browser console for errors (F12)
+
+3. Verify the API is responding:
+   http://localhost:5001/api/earthquakes/test
+
+4. The AI responses are real-time from USGS data!
+-->

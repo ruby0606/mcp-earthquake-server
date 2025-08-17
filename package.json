@@ -8,7 +8,11 @@
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
-    "test": "npm run build && node --test test/earthquake-analyzer.test.js"
+    "test": "npm run build && node --test test/earthquake-analyzer.test.js",
+    "test:all": "npm run build && node --test test/*.test.js",
+    "test:live": "npm run build && node --test test/live-data-validation.test.js",
+    "test:integration": "npm run build && node --test test/mcp-integration.test.js",
+    "test:quality": "npm run build && node --test test/anti-hallucination.test.js"
   },
   "keywords": [
     "mcp",

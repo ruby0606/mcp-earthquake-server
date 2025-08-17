@@ -284,23 +284,23 @@ server.registerTool(
 **Event ID:** ${eventId}
 **Station:** ${network}.${station}.${channel}
 **Time Range:** ${startTime} to ${endTime}
-**Samples:** ${waveform.samples.length}
+**Samples:** ${waveform.samples.length} data points
 **Sample Rate:** ${waveform.sampleRate} Hz
-**Duration:** ${waveform.duration}s
+**Duration:** ${waveform.duration.toFixed(1)}s
 
 ### Waveform Analysis
-- **Peak Amplitude:** ${waveform.peakAmplitude}
-- **RMS Amplitude:** ${waveform.rmsAmplitude}
-- **Signal Quality:** ${waveform.quality}
+- **Peak Amplitude:** ${waveform.peakAmplitude.toFixed(6)} counts
+- **RMS Amplitude:** ${waveform.rmsAmplitude.toFixed(6)} counts
+- **Signal Quality:** ${waveform.quality.toUpperCase()}
+- **Data Format:** MinISEED (${(waveform.samples.length * 4 / 1024).toFixed(1)} KB)
 
-*Note: Raw waveform data available via resource link below*`
-          },
-          {
-            type: "resource_link",
-            uri: `waveform://${eventId}/${network}/${station}/${channel}`,
-            name: `${eventId}_${network}_${station}_${channel}.json`,
-            mimeType: "application/json",
-            description: "Raw waveform data in JSON format"
+### Sample Data Preview
+\`\`\`
+First 10 samples: [${waveform.samples.slice(0, 10).map(s => s.toFixed(3)).join(', ')}${waveform.samples.length > 10 ? ', ...' : ''}]
+Last 10 samples:  [${waveform.samples.slice(-10).map(s => s.toFixed(3)).join(', ')}]
+\`\`\`
+
+**Status:** ✅ Waveform data successfully retrieved from IRIS FDSNWS dataselect service`
           }
         ]
       };
