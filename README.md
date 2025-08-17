@@ -1,17 +1,17 @@
-# 🌍 Comprehensive Earthquake Monitoring MCP Server
+#  Comprehensive Earthquake Monitoring MCP Server
 
 A complete Model Context Protocol (MCP) server that provides access to multiple earthquake monitoring data sources including IRIS seismological data, GNSS/GPS crustal deformation measurements, and USGS earthquake feeds for comprehensive earthquake monitoring and analysis.
 
-## 📋 Quick Links for Sharing
+##  Quick Links for Sharing
 
-### 👥 For Other Developers
-📖 **[Developer Setup Guide](DEVELOPER-SETUP.md)** - Complete installation and integration guide
+###  For Other Developers
+ **[Developer Setup Guide](DEVELOPER-SETUP.md)** - Complete installation and integration guide
 
 ### 🔬 For Researchers & Seismologists  
-📊 **[Research Guide](docs/RESEARCH-GUIDE.md)** - Scientific applications and research use cases
+ **[Research Guide](docs/RESEARCH-GUIDE.md)** - Scientific applications and research use cases
 
-### � Extended Documentation
-� **[Documentation Index](docs/README.md)** - Complete documentation directory
+###  Extended Documentation
+ **[Documentation Index](docs/README.md)** - Complete documentation directory
 
 ---
 
@@ -32,29 +32,29 @@ npm start
 
 3. **Configure your MCP client** (see [Developer Setup Guide](DEVELOPER-SETUP.md))
 
-## ✨ Key Features
-- 🌍 **Global Coverage** - Worldwide monitoring
-- 🔄 **Real-time Data** - Live earthquake feeds and rapid analysis
-- 📡 **Multi-source Integration** - IRIS + USGS + GNSS
-- 🛠️ **10 Comprehensive Tools** - From basic queries to advanced analysis
-- 🔒 **Production Ready** - Fully tested, validated, and documented
+##  Key Features
+-  **Global Coverage** - Worldwide monitoring
+-  **Real-time Data** - Live earthquake feeds and rapid analysis
+-  **Multi-source Integration** - IRIS + USGS + GNSS
+- 🛠 **10 Comprehensive Tools** - From basic queries to advanced analysis
+-  **Production Ready** - Fully tested, validated, and documented
 
 ## Features
 
-### 🌍 Data Sources
+###  Data Sources
 - **IRIS (Incorporated Research Institutions for Seismology)** - Earthquake catalogs, waveform data, and station information
 - **GNSS Networks** - GPS/GNSS station displacement measurements from UNAVCO, Nevada Geodetic Laboratory, and other providers
 - **USGS Earthquake Hazards Program** - Real-time earthquake feeds, ShakeMap data, and seismic hazard assessments
 - **Real-time Monitoring** - Latest earthquake activity, crustal deformation, and satellite observations with multi-source validation
 
-### 📊 Resources Available
+###  Resources Available
 - `iris-catalog` - Access earthquake events from IRIS database
 - `gnss-stations` - GPS/GNSS station network information
 - `realtime-earthquakes` - Latest earthquake activity feed
 - `usgs-realtime` - USGS real-time earthquake feeds with multiple magnitude filters
 - `usgs-shakemap` - ShakeMap intensity and ground motion data for specific events
 
-### 🔧 Tools Provided
+###  Tools Provided
 **Seismic Analysis:**
 - **analyze-seismic-activity** - Comprehensive seismic risk analysis for regions
 - **fetch-waveform** - Retrieve seismic waveform data for specific events
@@ -68,7 +68,7 @@ npm start
 - **get-usgs-shakemap** - Retrieve ShakeMap data for specific earthquakes
 - **get-seismic-hazard** - Get probabilistic seismic hazard assessments
 
-### 💬 Prompts
+###  Prompts
 - **earthquake-risk-assessment** - Generate comprehensive risk assessments
 - **interpret-seismic-data** - Help interpret complex seismic data
 
