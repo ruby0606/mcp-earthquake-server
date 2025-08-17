@@ -8,10 +8,10 @@ A complete Model Context Protocol (MCP) server that provides access to multiple 
 📖 **[Developer Setup Guide](DEVELOPER-SETUP.md)** - Complete installation and integration guide
 
 ### 🔬 For Researchers & Seismologists  
-📊 **[Research Guide](RESEARCH-GUIDE.md)** - Scientific applications and research use cases
+📊 **[Research Guide](docs/RESEARCH-GUIDE.md)** - Scientific applications and research use cases
 
-### 🔍 Code Quality
-📋 **[Code Review Summary](CODE-REVIEW-SUMMARY.md)** - Comprehensive quality assessment and fixes
+### � Extended Documentation
+� **[Documentation Index](docs/README.md)** - Complete documentation directory
 
 ---
 

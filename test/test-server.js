@@ -12,7 +12,7 @@ console.log("🧪 Testing MCP Earthquake Server...\n");
 
 // Test server startup
 console.log("1. Testing server startup...");
-const serverPath = join(process.cwd(), "dist", "index.js");
+const serverPath = join(process.cwd(), "..", "dist", "index.js");
 
 const server = spawn("node", [serverPath], {
   stdio: ["pipe", "pipe", "pipe"]

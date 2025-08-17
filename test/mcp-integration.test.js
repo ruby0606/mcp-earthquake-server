@@ -14,7 +14,7 @@ import { setTimeout } from 'timers/promises';
 // Helper function to create a test MCP client
 async function createTestClient() {
   // Start the MCP server as a child process
-  const serverProcess = spawn('node', ['dist/index.js'], {
+  const serverProcess = spawn('node', ['../dist/index.js'], {
     stdio: ['pipe', 'pipe', 'pipe'],
     cwd: process.cwd()
   });

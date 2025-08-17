@@ -12,7 +12,7 @@ async function testGlobalEarthquakeMonitoring() {
   console.log('🌍 Testing Global Earthquake Monitoring MCP Server\n');
 
   // Start the MCP server
-  const serverProcess = spawn('node', ['dist/index.js'], {
+  const serverProcess = spawn('node', ['../dist/index.js'], {
     cwd: process.cwd(),
     stdio: ['pipe', 'pipe', 'pipe']
   });

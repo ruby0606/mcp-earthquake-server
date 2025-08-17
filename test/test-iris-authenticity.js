@@ -134,7 +134,7 @@ async function testIrisAuthenticity() {
     console.log('---------------------------------------');
     
     // Read the source code to ensure no Math.random() usage
-    const irisSourceCode = fs.readFileSync('./src/providers/iris-provider.ts', 'utf8');
+    const irisSourceCode = fs.readFileSync('../src/providers/iris-provider.ts', 'utf8');
     
     if (irisSourceCode.includes('Math.random')) {
         console.log('❌ CRITICAL FAIL: Math.random() found in IRIS provider source code');

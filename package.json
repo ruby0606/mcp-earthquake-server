@@ -12,7 +12,13 @@
     "test:all": "npm run build && node --test test/*.test.js",
     "test:live": "npm run build && node --test test/live-data-validation.test.js",
     "test:integration": "npm run build && node --test test/mcp-integration.test.js",
-    "test:quality": "npm run build && node --test test/anti-hallucination.test.js"
+    "test:quality": "npm run build && node --test test/anti-hallucination.test.js",
+    "test:server": "npm run build && cd test && node test-server.js",
+    "test:global": "npm run build && cd test && node test-global-coverage.js",
+    "test:mcp": "npm run build && cd test && node test-mcp-global.js",
+    "test:gnss": "npm run build && cd test && node test-gnss-real-data.js",
+    "test:insar": "npm run build && cd test && node test-insar-simple.js",
+    "test:iris": "npm run build && cd test && node test-iris-authenticity.js"
   },
   "keywords": [
     "mcp",

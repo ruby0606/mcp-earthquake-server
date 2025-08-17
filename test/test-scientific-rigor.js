@@ -7,9 +7,9 @@
  * scientifically-validated constants instead of hardcoded heuristics.
  */
 
-import { EarthquakeAnalyzer } from './src/analyzers/earthquake-analyzer.js';
-import { IrisDataProvider } from './src/providers/iris-provider.js';
-import { GnssDataProvider } from './src/providers/gnss-provider.js';
+import { EarthquakeAnalyzer } from '../src/analyzers/earthquake-analyzer.js';
+import { IrisDataProvider } from '../src/providers/iris-provider.js';
+import { GnssDataProvider } from '../src/providers/gnss-provider.js';
 
 // Import scientific constants to validate they're being used
 import { 
@@ -19,7 +19,7 @@ import {
     MAGNITUDE_THRESHOLDS,
     CONFIDENCE_PARAMS,
     REGIONAL_BOUNDARIES
-} from './src/config/scientific-constants.js';
+} from '../src/config/scientific-constants.js';
 
 console.log('🔬 SCIENTIFIC RIGOR VALIDATION TEST');
 console.log('=====================================\n');
