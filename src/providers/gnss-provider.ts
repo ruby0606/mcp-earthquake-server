@@ -103,34 +103,117 @@ export class GnssDataProvider {
     caribbean: ["COCONet"]
   };
 
+  // Simple in-memory cache to avoid hitting remote services on every call
+  private stationCache: { data: GnssStation[]; fetched: number } | null = null;
+  private readonly stationCacheTtlMs = 6 * 60 * 60 * 1000; // 6 hours
+  private lastStationRequest = 0;
+  private readonly stationRateLimitMs = 10 * 1000; // 10 seconds between requests
+  // Public NGL GPSNetMap endpoint providing station metadata
+  private readonly stationMetadataUrl =
+    'https://geodesy.unr.edu/api/stations';
+
   /**
-   * Get GNSS stations using Nevada Geodetic Laboratory real data
+   * Get GNSS stations from a public metadata source (NGL GPSNetMap)
+   * Applies basic caching and rate limiting to protect the remote service.
    */
-  async getStations(network?: string, region?: string, bounds?: {north: number, south: number, east: number, west: number}): Promise<GnssStation[]> {
+  async getStations(
+    network?: string,
+    region?: string,
+    bounds?: { north: number; south: number; east: number; west: number }
+  ): Promise<GnssStation[]> {
     try {
-      // Use Nevada Geodetic Laboratory station list
-      // Real API: http://geodesy.unr.edu/NGLStationPages/gpsnetmap/GPSNetMap.html
-      // For now, we'll use known real stations from the NGL database
-      
-      let targetNetworks: string[] = [];
-      
-      if (network) {
-        targetNetworks = [network];
-      } else if (region && this.regionalNetworks[region.toLowerCase() as keyof typeof this.regionalNetworks]) {
-        targetNetworks = this.regionalNetworks[region.toLowerCase() as keyof typeof this.regionalNetworks];
-      } else {
-        // Default to major real networks
-        targetNetworks = ["PBO", "IGS", "GEONET", "COCONet"];
+      const now = Date.now();
+
+      // Return cached data if available and still fresh
+      if (this.stationCache && now - this.stationCache.fetched < this.stationCacheTtlMs) {
+        return this.filterStations(this.stationCache.data, network, region, bounds);
       }
 
-      // Real GNSS stations from Nevada Geodetic Laboratory and other networks
-      const realStations = this.getRealGnssStations(targetNetworks, region, bounds);
-      
-      return realStations;
+      // Basic rate limiting
+      if (now - this.lastStationRequest < this.stationRateLimitMs) {
+        if (this.stationCache) {
+          return this.filterStations(this.stationCache.data, network, region, bounds);
+        }
+        throw new Error('Station metadata requests are rate limited');
+      }
+
+      this.lastStationRequest = now;
+
+      const response = await axios.get(this.stationMetadataUrl, { timeout: 10000 });
+      const rawStations = Array.isArray(response.data)
+        ? response.data
+        : response.data?.stations || [];
+
+      const stations: GnssStation[] = rawStations.map((s: any) => ({
+        stationId: s.station || s.id || s.code || '',
+        name: s.name || s.stationName || s.station || s.id || '',
+        network: s.network || s.net || '',
+        latitude: parseFloat(s.latitude ?? s.lat ?? 0),
+        longitude: parseFloat(s.longitude ?? s.lon ?? 0),
+        elevation: parseFloat(s.elevation ?? s.height ?? 0),
+        country: s.country || '',
+        region: (s.region || '').toLowerCase(),
+        operator: s.operator || s.agency || '',
+        receiver: s.receiver || '',
+        antenna: s.antenna || '',
+        installDate: s.installDate || s.startDate || '',
+        status: (s.status || 'active').toLowerCase(),
+        dataLatency: Number(s.dataLatency) || 0,
+      }));
+
+      // Cache the fetched data
+      this.stationCache = { data: stations, fetched: now };
+
+      return this.filterStations(stations, network, region, bounds);
     } catch (error) {
-      console.error("Error fetching GNSS stations:", error);
-      throw new Error(`Failed to fetch GNSS stations: ${(error as Error).message}`);
+      console.error('Error fetching GNSS stations:', error);
+
+      // Fallback to static station list if remote source fails
+      const targetNetworks: string[] =
+        network
+          ? [network]
+          : region && this.regionalNetworks[region.toLowerCase() as keyof typeof this.regionalNetworks]
+            ? this.regionalNetworks[region.toLowerCase() as keyof typeof this.regionalNetworks]
+            : ['PBO', 'IGS', 'GEONET', 'COCONet'];
+
+      const fallback = this.getRealGnssStations(targetNetworks, region, bounds);
+      return fallback;
     }
+  }
+
+  private filterStations(
+    stations: GnssStation[],
+    network?: string,
+    region?: string,
+    bounds?: { north: number; south: number; east: number; west: number }
+  ): GnssStation[] {
+    let filtered = stations;
+
+    // Filter by network or region networks
+    if (network) {
+      filtered = filtered.filter((s) => s.network === network);
+    } else if (region && this.regionalNetworks[region.toLowerCase() as keyof typeof this.regionalNetworks]) {
+      const nets = this.regionalNetworks[region.toLowerCase() as keyof typeof this.regionalNetworks];
+      filtered = filtered.filter((s) => nets.includes(s.network));
+    }
+
+    // Filter by region property
+    if (region) {
+      filtered = filtered.filter((s) => s.region === region.toLowerCase());
+    }
+
+    // Filter by geographic bounds
+    if (bounds) {
+      filtered = filtered.filter(
+        (s) =>
+          s.latitude >= bounds.south &&
+          s.latitude <= bounds.north &&
+          s.longitude >= bounds.west &&
+          s.longitude <= bounds.east,
+      );
+    }
+
+    return filtered;
   }
 
   // Geographic coordinate boundaries using scientific regional definitions
