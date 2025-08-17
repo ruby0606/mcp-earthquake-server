@@ -444,34 +444,69 @@ export class InSARDataProvider {
         coherence: number;
         atmosphericCorrection: boolean;
       }> = [];
-      
-      // Create entries for available acquisition dates
+
+      // Create entries for available acquisition dates using processing results
       for (const product of products.slice(0, 20)) { // Limit to 20 most recent
-        measurements.push({
-          date: product.acquisitionDate,
-          displacement: 0, // Requires processing
-          velocity: 0, // Requires processing
-          error: 2.5, // Typical InSAR measurement error
-          coherence: 0.7, // Estimated coherence
-          atmosphericCorrection: false // Would require dedicated processing
-        });
+        try {
+          const result = await this.fetchPipelineMeasurement(product);
+          if (!result) {
+            console.warn(`No coherent data for ${product.productId}, skipping`);
+            continue;
+          }
+
+          measurements.push({
+            date: product.acquisitionDate,
+            displacement: result.displacement,
+            velocity: result.velocity,
+            error: 2.5, // Typical InSAR measurement error
+            coherence: result.coherence,
+            atmosphericCorrection: false // Would require dedicated processing
+          });
+        } catch (e) {
+          console.warn(`Failed to retrieve measurement for ${product.productId}:`, (e as Error).message);
+        }
       }
-      
+
+      if (measurements.length === 0) {
+        console.warn('No usable InSAR measurements available - returning no data');
+        return {
+          location: options.location,
+          timeRange,
+          measurements: [],
+          trend: {
+            linearVelocity: 0,
+            acceleration: 0,
+            seasonalAmplitude: 0,
+            confidence: 0
+          },
+          quality: {
+            temporalCoherence: 0,
+            spatialConsistency: 0,
+            atmosphericArtifacts: "high" as const,
+            overallQuality: "poor" as const
+          }
+        };
+      }
+
+      // Compute trend and quality from retrieved measurements
+      const avgVelocity = measurements.reduce((sum, m) => sum + m.velocity, 0) / measurements.length;
+      const temporalCoherence = measurements.reduce((sum, m) => sum + m.coherence, 0) / measurements.length;
+
       const timeSeries: DeformationTimeSeries = {
         location: options.location,
         timeRange,
         measurements,
         trend: {
-          linearVelocity: 0, // Requires processing
+          linearVelocity: parseFloat(avgVelocity.toFixed(2)),
           acceleration: 0,
           seasonalAmplitude: 0,
-          confidence: products.length > 10 ? 0.8 : 0.5
+          confidence: measurements.length > 10 ? 0.8 : 0.5
         },
         quality: {
-          temporalCoherence: products.length > 15 ? 0.8 : 0.6,
+          temporalCoherence,
           spatialConsistency: 0.7,
           atmosphericArtifacts: "medium" as const,
-          overallQuality: products.length > 15 ? "good" : "fair"
+          overallQuality: this.assessOverallQuality(measurements)
         }
       };
       
@@ -682,19 +717,34 @@ export class InSARDataProvider {
         anomalyType: "acceleration" | "new_signal" | "coherence_loss";
         significance: "low" | "medium" | "high" | "critical";
       }> = [];
-      
+
       // Analyze each track for deformation monitoring potential
-      Object.entries(trackGroups).forEach(([track, products]) => {
+      for (const [track, products] of Object.entries(trackGroups)) {
         if (products.length >= 3) { // Need minimum 3 acquisitions for trend analysis
           const centerLat = (region.north + region.south) / 2;
           const centerLon = (region.east + region.west) / 2;
           const lastUpdate = Math.max(...products.map(p => new Date(p.acquisitionDate).getTime()));
-          
+
+          // Retrieve displacement for first and last acquisitions to estimate velocity
+          const firstProduct = products[0];
+          const lastProduct = products[products.length - 1];
+
+          const firstMeas = await this.fetchPipelineMeasurement(firstProduct);
+          const lastMeas = await this.fetchPipelineMeasurement(lastProduct);
+
+          if (!firstMeas || !lastMeas) {
+            console.warn(`Insufficient coherent data for track ${track}`);
+            continue;
+          }
+
+          const days = (new Date(lastProduct.acquisitionDate).getTime() - new Date(firstProduct.acquisitionDate).getTime()) / (1000 * 60 * 60 * 24);
+          const velocity = days > 0 ? ((lastMeas.displacement - firstMeas.displacement) / days) * 365 : 0;
+
           // Assess data coverage quality
           let confidence = 0.5;
           if (products.length >= 6) confidence = 0.7;
           if (products.length >= 10) confidence = 0.9;
-          
+
           // Determine significance based on data coverage and recency
           let significance: "low" | "medium" | "high" | "critical" = "low";
           if (products.length >= 6 && (Date.now() - lastUpdate) < 14 * 24 * 60 * 60 * 1000) {
@@ -703,19 +753,19 @@ export class InSARDataProvider {
           if (products.length >= 10 && (Date.now() - lastUpdate) < 7 * 24 * 60 * 60 * 1000) {
             significance = "high";
           }
-          
+
           deformationAreas.push({
             location: { latitude: centerLat, longitude: centerLon },
-            velocity: 0, // Requires processing - placeholder
-            direction: "horizontal" as const, // Most common for tectonic areas
+            velocity: parseFloat(velocity.toFixed(2)),
+            direction: velocity >= 0 ? "uplift" : "subsidence",
             confidence,
             lastUpdate: new Date(lastUpdate).toISOString(),
             anomalyType: "new_signal" as const,
             significance
           });
         }
-      });
-      
+      }
+
       console.log(`Identified ${deformationAreas.length} areas with sufficient data for deformation monitoring`);
       console.log(`Recommendation: Use COMET-LiCS or ASF HyP3 for actual velocity analysis`);
       
@@ -737,6 +787,47 @@ export class InSARDataProvider {
   }
 
   // === Private Helper Methods ===
+
+  /**
+   * Retrieve displacement and velocity from external InSAR processing services
+   * such as COMET-LiCS or ASF HyP3. Returns null when data is unavailable or
+   * coherence is too low for reliable measurements.
+   */
+  private async fetchPipelineMeasurement(product: InSARProduct): Promise<{ displacement: number; velocity: number; coherence: number } | null> {
+    try {
+      const url = `${this.comet_lics_url}/api/v1/track/${product.track}/frame/${product.frame}/timeseries`;
+      const response: AxiosResponse = await axios.get(url, { timeout: 10000 });
+
+      // Expected response structure: { ts: [{date, displacement}], velocity, coherence }
+      const ts = response.data?.ts || response.data?.timeseries;
+      const coherence = response.data?.coherence ?? 0;
+      if (!ts || ts.length === 0 || coherence < 0.3) {
+        return null;
+      }
+
+      const last = ts[ts.length - 1];
+      const displacement = typeof last.displacement === 'number' ? last.displacement : 0;
+      let velocity = response.data?.velocity;
+      if (typeof velocity !== 'number') {
+        if (ts.length > 1) {
+          const first = ts[0];
+          const days = (new Date(last.date).getTime() - new Date(first.date).getTime()) / (1000 * 60 * 60 * 24);
+          velocity = days > 0 ? ((last.displacement - first.displacement) / days) * 365 : 0;
+        } else {
+          velocity = 0;
+        }
+      }
+
+      return {
+        displacement,
+        velocity,
+        coherence
+      };
+    } catch (error) {
+      console.warn(`Pipeline measurement retrieval failed for ${product.productId}:`, (error as Error).message);
+      return null;
+    }
+  }
 
   private extractDateFromProductId(productId: string): string {
     // Extract date from product ID format
