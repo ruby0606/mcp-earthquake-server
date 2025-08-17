@@ -222,31 +222,118 @@ export class USGSDataProvider {
       }
 
       const earthquake = detailsResponse.data.features[0];
-      
-      // Try to get real ShakeMap data from USGS
-      const shakemapUrl = `${this.shakemapUrl}/${eventId}/download/intensity.jpg`;
-      let hasShakeMap = false;
-      
+
+      // Base ShakeMap download URL
+      const downloadBase = `${this.shakemapUrl}/${eventId}/download`;
+
+      let version = 1;
+      const contourData: { intensity: number; coordinates: Array<[number, number]> }[] = [];
+      const stationData: {
+        stationId: string;
+        name: string;
+        latitude: number;
+        longitude: number;
+        intensity: number;
+        peakGroundAcceleration: number;
+        peakGroundVelocity: number;
+      }[] = [];
+
+      // Try to get ShakeMap metadata
       try {
-        await axios.head(shakemapUrl, { timeout: 10000 });
-        hasShakeMap = true;
-      } catch (error) {
-        hasShakeMap = false;
+        const metaResp = await axios.get(`${downloadBase}/shakemap.json`, {
+          headers: { 'User-Agent': 'MCP-Earthquake-Server/1.0' },
+          timeout: 30000
+        });
+        const meta = metaResp.data || {};
+        version = parseInt(
+          meta?.shakemap_version ||
+            meta?.map_version ||
+            meta?.mapVersion ||
+            meta?.map_information?.shake_map_version ||
+            "1",
+          10
+        );
+      } catch (err) {
+        // Metadata not available; keep default version
       }
+
+      // Parse intensity contours
+      try {
+        const contourResp = await axios.get(`${downloadBase}/contour.json`, {
+          headers: { 'User-Agent': 'MCP-Earthquake-Server/1.0' },
+          timeout: 30000
+        });
+        const features = contourResp.data?.features || [];
+        for (const feature of features) {
+          const intensity = parseFloat(
+            feature?.properties?.value ??
+              feature?.properties?.intensity ??
+              feature?.properties?.mmi ??
+              0
+          );
+          const coords =
+            feature?.geometry?.coordinates?.[0]?.map((c: [number, number]) => [
+              c[1],
+              c[0]
+            ]) || [];
+          contourData.push({ intensity, coordinates: coords });
+        }
+      } catch (err) {
+        // Contour data may not be available
+      }
+
+      // Parse station list
+      try {
+        const stationResp = await axios.get(`${downloadBase}/stationlist.json`, {
+          headers: { 'User-Agent': 'MCP-Earthquake-Server/1.0' },
+          timeout: 30000
+        });
+        const stations = stationResp.data?.features || [];
+        for (const station of stations) {
+          const props = station.properties || {};
+          const intensity = parseFloat(
+            props?.intensity ?? props?.mmi ?? props?.value ?? 0
+          );
+          const pga = parseFloat(
+            props?.pga?.value ?? props?.pga ?? 0
+          );
+          const pgv = parseFloat(
+            props?.pgv?.value ?? props?.pgv ?? 0
+          );
+          stationData.push({
+            stationId: props?.code || props?.id || props?.station_id || "",
+            name: props?.name || props?.station_name || "",
+            latitude: station?.geometry?.coordinates?.[1] ?? 0,
+            longitude: station?.geometry?.coordinates?.[0] ?? 0,
+            intensity,
+            peakGroundAcceleration: pga,
+            peakGroundVelocity: pgv
+          });
+        }
+      } catch (err) {
+        // Station data may not be available
+      }
+
+      // Calculate max intensity from parsed data
+      const maxIntensity = Math.max(
+        ...contourData.map((c) => c.intensity),
+        ...stationData.map((s) => s.intensity),
+        0
+      );
 
       const shakeMapData: ShakeMapData = {
         eventId,
-        version: 1, // Default version
+        version,
         eventTime: new Date(earthquake.properties.time).toISOString(),
         magnitude: earthquake.properties.mag,
         location: earthquake.properties.place,
         latitude: earthquake.geometry.coordinates[1],
         longitude: earthquake.geometry.coordinates[0],
         depth: earthquake.geometry.coordinates[2],
-        maxIntensity: hasShakeMap ? Math.min(Math.floor(earthquake.properties.mag * 1.2 + 2), 10) : Math.floor(earthquake.properties.mag * 1.2),
-        shakemapUrl: hasShakeMap ? `${this.shakemapUrl}/${eventId}/` : `${this.shakemapUrl}/${eventId}/notfound`,
-        contourData: [], // Real contour data would require additional USGS ShakeMap API calls
-        stationData: []   // Real station data would require additional USGS ShakeMap API calls
+        maxIntensity,
+        shakemapUrl: `${this.shakemapUrl}/${eventId}/`,
+        contourData,
+        stationData
       };
 
       return shakeMapData;
