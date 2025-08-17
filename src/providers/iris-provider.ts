@@ -369,10 +369,6 @@ export class IrisDataProvider {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 400) {
           throw new Error(`Invalid waveform parameters: Check network=${options.network}, station=${options.station}, channel=${options.channel}, time range=${options.startTime} to ${options.endTime}`);
-        } else if (error.response?.status === 404) {
-          throw new Error(`No waveform data available for ${options.network}.${options.station}.${options.channel} during specified time period`);
-        } else if (error.response?.status === 204) {
-          throw new Error(`No data returned for ${options.network}.${options.station}.${options.channel} - station may be offline or no data exists for time period`);
         }
       }
       throw new Error(`Failed to fetch waveform data: ${(error as Error).message}`);

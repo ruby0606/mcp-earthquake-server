@@ -80,6 +80,14 @@ class MiniSeedParser:
                     'samples': [],
                     'metadata': {}
                 }
+            elif response.status_code == 204:
+                return {
+                    'success': False,
+                    'error': 'no-data-available',
+                    'message': f'No content returned for {network}.{station}.{location}.{channel} - station may be offline or no data exists for time period',
+                    'samples': [],
+                    'metadata': {}
+                }
             elif response.status_code != 200:
                 return {
                     'success': False,

@@ -8,7 +8,7 @@
  * generating synthetic data.
  */
 
-import { IrisDataProvider } from './dist/providers/iris-provider.js';
+import { IrisDataProvider } from '../dist/providers/iris-provider.js';
 
 async function testRealWaveformData() {
     console.log('🌊 Testing Real MiniSEED Waveform Data Integration');
